@@ -53,7 +53,7 @@ serve(async (req) => {
       );
     }
 
-    // Get admin user to use their API settings (not the new user's settings)
+    // Get admin user to use their API settings
     console.log('Getting admin user settings for sending notification...');
     const { data: adminRole } = await supabaseClient
       .from('user_roles')
@@ -103,6 +103,14 @@ serve(async (req) => {
 
     console.log('Admin API settings loaded successfully');
 
+    // Get welcome message template
+    const { data: template } = await supabaseClient
+      .from('whatsapp_templates')
+      .select('message_template')
+      .eq('template_key', 'welcome_new_user')
+      .eq('is_active', true)
+      .single();
+
     // Format expiration date
     const expiryDate = new Date(expire_at).toLocaleDateString('id-ID', {
       day: 'numeric',
@@ -110,23 +118,21 @@ serve(async (req) => {
       year: 'numeric'
     });
 
-    // Build welcome message
-    const message = `Selamat datang di BalasinAja, ${name}! 🎉
+    // Use template or default message
+    let message = template?.message_template || `Halo {NAME} 👋
 
-Akun Anda telah berhasil didaftarkan dengan detail berikut:
-📧 Status: Trial (2 hari)
-📅 Berakhir: ${expiryDate}
+Selamat datang di BalasinAja! 
 
-Anda sekarang dapat menggunakan fitur:
-✅ AI Auto-Reply
-✅ Broadcast Messages
-✅ Contact Management
-✅ Knowledge Base
+Akun Anda telah berhasil dibuat dan aktif hingga {EXPIRE_DATE}.
 
-Untuk mengaktifkan akun penuh, silakan perpanjang langganan Anda melalui dashboard.
+Silakan login dan mulai gunakan layanan kami untuk mengelola pesan WhatsApp Anda secara otomatis.
 
-Terima kasih telah bergabung!
-- Tim BalasinAja`;
+Terima kasih telah bergabung! 🎉`;
+
+    // Replace placeholders
+    message = message
+      .replace(/{NAME}/g, name || 'User')
+      .replace(/{EXPIRE_DATE}/g, expiryDate);
 
     console.log('Sending WhatsApp message to:', phone);
 

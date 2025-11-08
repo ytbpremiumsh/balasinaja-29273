@@ -166,6 +166,90 @@ serve(async (req) => {
             title: 'Pembayaran Berhasil',
             message: `Pembayaran paket ${packageData.name} telah dikonfirmasi. Langganan diperpanjang hingga ${newExpiry.toLocaleDateString('id-ID')}`
           });
+
+          // Send WhatsApp notification using template
+          try {
+            // Get user profile for phone number
+            const { data: userProfile } = await supabase
+              .from('profiles')
+              .select('name, phone')
+              .eq('user_id', userId)
+              .single();
+
+            if (userProfile?.phone) {
+              // Get admin settings for OneSender API
+              const { data: adminRole } = await supabase
+                .from('user_roles')
+                .select('user_id')
+                .eq('role', 'admin')
+                .limit(1)
+                .single();
+
+              if (adminRole) {
+                const { data: settings } = await supabase
+                  .from('settings')
+                  .select('key, value')
+                  .eq('user_id', adminRole.user_id)
+                  .in('key', ['onesender_api_url', 'onesender_api_key']);
+
+                const settingsMap = settings?.reduce((acc, item) => {
+                  acc[item.key] = item.value;
+                  return acc;
+                }, {} as Record<string, string>) || {};
+
+                const apiUrl = settingsMap.onesender_api_url;
+                const apiKey = settingsMap.onesender_api_key;
+
+                if (apiUrl && apiKey) {
+                  // Get payment success template
+                  const { data: template } = await supabase
+                    .from('whatsapp_templates')
+                    .select('message_template')
+                    .eq('template_key', 'payment_success')
+                    .eq('is_active', true)
+                    .single();
+
+                  const expiryDateFormatted = newExpiry.toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  });
+
+                  let waMessage = template?.message_template || `Halo {NAME} 👋
+
+Pembayaran Anda untuk paket *{PACKAGE_NAME}* telah berhasil dikonfirmasi! ✅
+
+Langganan Anda telah diperpanjang hingga {EXPIRE_DATE}.
+
+Terima kasih atas kepercayaan Anda menggunakan BalasinAja!`;
+
+                  waMessage = waMessage
+                    .replace(/{NAME}/g, userProfile.name || 'User')
+                    .replace(/{PACKAGE_NAME}/g, packageData.name)
+                    .replace(/{EXPIRE_DATE}/g, expiryDateFormatted);
+
+                  // Send WhatsApp message
+                  const waResponse = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'apikey': apiKey
+                    },
+                    body: JSON.stringify({
+                      to: userProfile.phone,
+                      type: 'text',
+                      text: waMessage
+                    })
+                  });
+
+                  console.log('WhatsApp notification sent:', await waResponse.text());
+                }
+              }
+            }
+          } catch (waError) {
+            console.error('Error sending WhatsApp notification:', waError);
+            // Don't fail the whole process if WhatsApp fails
+          }
         }
       }
     }

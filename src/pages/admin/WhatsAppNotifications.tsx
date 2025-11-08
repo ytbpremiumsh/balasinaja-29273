@@ -189,6 +189,29 @@ export default function WhatsAppNotifications() {
           </CardContent>
         </Card>
 
+        {/* Webhook Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Webhook Information</CardTitle>
+            <CardDescription>
+              Gunakan URL webhook ini untuk konfigurasi OneSender
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Setiap user memiliki webhook token unik yang digunakan untuk autentikasi pesan masuk.
+            </p>
+            <div className="rounded-lg bg-muted p-3">
+              <code className="text-xs break-all">
+                {import.meta.env.VITE_SUPABASE_URL}/functions/v1/balasinaja?token={'{'}<span className="text-primary">WEBHOOK_TOKEN</span>{'}'}
+              </code>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Setiap user dapat melihat token webhook mereka di halaman Konfigurasi API. Token ini bersifat unik dan rahasia untuk keamanan.
+            </p>
+          </CardContent>
+        </Card>
+
         {/* User List */}
         <Card>
           <CardHeader>

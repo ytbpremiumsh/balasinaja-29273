@@ -24,6 +24,7 @@ import PackageManagement from "./pages/admin/PackageManagement";
 import PaymentVerification from "./pages/admin/PaymentVerification";
 import PaymentSettings from "./pages/admin/PaymentSettings";
 import WhatsAppNotifications from "./pages/admin/WhatsAppNotifications";
+import WhatsAppTemplates from "./pages/admin/WhatsAppTemplates";
 import ActivityLogs from "./pages/admin/ActivityLogs";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
@@ -59,6 +60,7 @@ const App = () => (
           <Route path="/admin/payments" element={<ProtectedRoute><AdminRoute><PaymentVerification /></AdminRoute></ProtectedRoute>} />
           <Route path="/admin/payment-settings" element={<ProtectedRoute><AdminRoute><PaymentSettings /></AdminRoute></ProtectedRoute>} />
           <Route path="/admin/whatsapp-notifications" element={<ProtectedRoute><AdminRoute><WhatsAppNotifications /></AdminRoute></ProtectedRoute>} />
+          <Route path="/admin/whatsapp-templates" element={<ProtectedRoute><AdminRoute><WhatsAppTemplates /></AdminRoute></ProtectedRoute>} />
           <Route path="/admin/logs" element={<ProtectedRoute><AdminRoute><ActivityLogs /></AdminRoute></ProtectedRoute>} />
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
