@@ -158,12 +158,19 @@ export type Database = {
             referencedRelation: "categories"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "broadcast_logs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "broadcast_templates"
+            referencedColumns: ["id"]
+          },
         ]
       }
       broadcast_queue: {
         Row: {
-          broadcast_log_id: string
-          created_at: string
+          broadcast_log_id: string | null
+          created_at: string | null
           error_message: string | null
           id: string
           media_type: string | null
@@ -174,11 +181,11 @@ export type Database = {
           retry_count: number | null
           scheduled_at: string | null
           sent_at: string | null
-          status: string
+          status: string | null
         }
         Insert: {
-          broadcast_log_id: string
-          created_at?: string
+          broadcast_log_id?: string | null
+          created_at?: string | null
           error_message?: string | null
           id?: string
           media_type?: string | null
@@ -189,11 +196,11 @@ export type Database = {
           retry_count?: number | null
           scheduled_at?: string | null
           sent_at?: string | null
-          status?: string
+          status?: string | null
         }
         Update: {
-          broadcast_log_id?: string
-          created_at?: string
+          broadcast_log_id?: string | null
+          created_at?: string | null
           error_message?: string | null
           id?: string
           media_type?: string | null
@@ -204,36 +211,47 @@ export type Database = {
           retry_count?: number | null
           scheduled_at?: string | null
           sent_at?: string | null
-          status?: string
+          status?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "broadcast_queue_broadcast_log_id_fkey"
+            columns: ["broadcast_log_id"]
+            isOneToOne: false
+            referencedRelation: "broadcast_logs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       broadcast_templates: {
         Row: {
-          created_at: string
+          created_at: string | null
           id: string
-          media_type: string
+          media_type: string | null
           media_url: string | null
           message: string
           name: string
+          updated_at: string | null
           user_id: string
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           id?: string
-          media_type?: string
+          media_type?: string | null
           media_url?: string | null
           message: string
           name: string
+          updated_at?: string | null
           user_id: string
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           id?: string
-          media_type?: string
+          media_type?: string | null
           media_url?: string | null
           message?: string
           name?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
@@ -532,6 +550,7 @@ export type Database = {
           plan: string | null
           status: string | null
           user_id: string
+          webhook_token: string
           whatsapp_number: string | null
         }
         Insert: {
@@ -544,6 +563,7 @@ export type Database = {
           plan?: string | null
           status?: string | null
           user_id: string
+          webhook_token?: string
           whatsapp_number?: string | null
         }
         Update: {
@@ -556,6 +576,7 @@ export type Database = {
           plan?: string | null
           status?: string | null
           user_id?: string
+          webhook_token?: string
           whatsapp_number?: string | null
         }
         Relationships: []

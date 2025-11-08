@@ -16,9 +16,52 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const webhookData = await req.json();
+    // Get raw body for signature verification
+    const rawBody = await req.text();
+    const webhookData = JSON.parse(rawBody);
     
     console.log('Mayar webhook received:', JSON.stringify(webhookData));
+
+    // Verify webhook signature if provided
+    const signature = req.headers.get('X-Mayar-Signature') || req.headers.get('X-Webhook-Signature');
+    const mayarApiKey = Deno.env.get('MAYAR_API_KEY');
+    
+    if (signature && mayarApiKey) {
+      console.log('Verifying webhook signature...');
+      
+      const encoder = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(mayarApiKey),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+      );
+      
+      const signatureBuffer = await crypto.subtle.sign(
+        'HMAC',
+        key,
+        encoder.encode(rawBody)
+      );
+      
+      const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+      
+      if (signature !== expectedSignature) {
+        console.error('❌ Invalid webhook signature');
+        return new Response(
+          JSON.stringify({ error: 'Invalid webhook signature' }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 401 
+          }
+        );
+      }
+      console.log('✅ Webhook signature verified');
+    } else {
+      console.warn('⚠️ Webhook signature verification skipped - no signature or API key');
+    }
 
     // Extract payment info from webhook - Mayar format
     const eventType = webhookData.event || '';

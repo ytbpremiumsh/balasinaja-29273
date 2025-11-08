@@ -17,17 +17,35 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get user_id from query params
+    // Get webhook token from query params and validate
     const url = new URL(req.url);
-    const userId = url.searchParams.get('user_id');
+    const token = url.searchParams.get('token');
 
-    if (!userId) {
-      console.error('❌ No user_id provided');
-      return new Response(JSON.stringify({ error: 'user_id is required' }), {
-        status: 400,
+    if (!token) {
+      console.error('❌ No webhook token provided');
+      return new Response(JSON.stringify({ error: 'Webhook token is required' }), {
+        status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    // Validate token and get user_id
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('user_id, webhook_token')
+      .eq('webhook_token', token)
+      .single();
+
+    if (profileError || !profile) {
+      console.error('❌ Invalid webhook token:', profileError?.message);
+      return new Response(JSON.stringify({ error: 'Invalid or unauthorized webhook token' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const userId = profile.user_id;
+    console.log('✅ Webhook token validated for user:', userId);
 
     const payload = await req.json();
     console.log('🔥 Webhook received for user:', userId, JSON.stringify(payload, null, 2));
