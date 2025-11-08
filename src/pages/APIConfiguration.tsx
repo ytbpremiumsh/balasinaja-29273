@@ -30,6 +30,7 @@ export default function APIConfiguration() {
   const [aiModel, setAiModel] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [aiReplyEnabled, setAiReplyEnabled] = useState(true);
+  const [webhookToken, setWebhookToken] = useState("");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -53,6 +54,20 @@ export default function APIConfiguration() {
       setAiModel(map.ai_model || "");
       setSystemPrompt(map.system_prompt || "");
       setAiReplyEnabled(map.ai_reply_enabled === "true");
+
+      // Load webhook token from profiles
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("webhook_token")
+          .eq("user_id", session.user.id)
+          .single();
+        
+        if (profile?.webhook_token) {
+          setWebhookToken(profile.webhook_token);
+        }
+      }
     } catch (err) {
       console.error("Error loading settings:", err);
       toast({
@@ -112,7 +127,9 @@ export default function APIConfiguration() {
     }
   };
 
-  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/balasinaja?user_id=${user?.id || "YOUR_USER_ID"}`;
+  const webhookUrl = webhookToken 
+    ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/balasinaja?token=${webhookToken}`
+    : "Loading...";
 
   const copyWebhook = () => {
     navigator.clipboard.writeText(webhookUrl);
@@ -157,12 +174,18 @@ export default function APIConfiguration() {
               <code className="text-xs bg-background rounded px-3 py-2 flex-1 overflow-x-auto break-all">
                 {webhookUrl}
               </code>
-              <Button variant="outline" size="icon" onClick={copyWebhook}>
+              <Button variant="outline" size="icon" onClick={copyWebhook} disabled={!webhookToken}>
                 {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
               </Button>
             </div>
+            <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-3">
+              <p className="text-sm font-medium text-yellow-800 mb-1">⚠️ Update Required di OneSender</p>
+              <p className="text-xs text-yellow-700">
+                URL webhook telah diperbarui untuk keamanan. Silakan copy URL baru di atas dan update di dashboard OneSender Anda.
+              </p>
+            </div>
             <p className="text-sm text-muted-foreground">
-              Gunakan URL ini di dashboard OneSender Anda. Sistem akan otomatis memproses pesan sesuai user ID Anda.
+              Gunakan URL ini di dashboard OneSender Anda. Sistem akan otomatis memproses pesan dengan token autentikasi yang aman.
             </p>
           </CardContent>
         </Card>
