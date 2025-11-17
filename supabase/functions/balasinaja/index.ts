@@ -194,6 +194,28 @@ serve(async (req) => {
     if (aiReplyEnabled && (messageType === 'text' || messageType === 'image')) {
       console.log('🤖 Attempting AI reply...');
       
+      // Get delay settings
+      const { data: delaySettings } = await supabase
+        .from('settings')
+        .select('key, value')
+        .eq('user_id', userId)
+        .in('key', ['min_delay_seconds', 'max_delay_seconds']);
+
+      let minDelay = 5;
+      let maxDelay = 15;
+
+      delaySettings?.forEach(setting => {
+        if (setting.key === 'min_delay_seconds') minDelay = parseInt(setting.value) || 5;
+        if (setting.key === 'max_delay_seconds') maxDelay = parseInt(setting.value) || 15;
+      });
+
+      // Calculate random delay
+      const randomDelay = Math.floor(Math.random() * (maxDelay - minDelay + 1) + minDelay);
+      console.log(`⏱️ Waiting ${randomDelay} seconds before replying (anti-spam)...`);
+      
+      // Wait for the delay
+      await new Promise(resolve => setTimeout(resolve, randomDelay * 1000));
+      
       // For image messages, get the image URL from payload
       const imageUrl = messageType === 'image' ? (payload.media_url || payload.url || '') : '';
       

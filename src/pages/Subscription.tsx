@@ -2,12 +2,12 @@ import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Package, Upload, CreditCard, Clock } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Package, Clock } from "lucide-react";
+import qrisImage from "@/assets/qris.png";
+import ewalletImage from "@/assets/e-wallet.png";
+import transferImage from "@/assets/transfer-bank.png";
 
 type PackageType = {
   id: string;
@@ -17,26 +17,14 @@ type PackageType = {
   description: string | null;
 };
 
-type PaymentSettings = {
-  bank_name: string | null;
-  account_number: string | null;
-  account_holder: string | null;
-  qris_code: string | null;
-  qris_image_url: string | null;
-};
-
 export default function Subscription() {
   const [packages, setPackages] = useState<PackageType[]>([]);
-  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<string>("");
-  const [paymentMethod, setPaymentMethod] = useState<string>("transfer");
-  const [proofImage, setProofImage] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchPackages();
-    fetchPaymentSettings();
   }, []);
 
   const fetchPackages = async () => {
@@ -54,17 +42,6 @@ export default function Subscription() {
       });
     } else {
       setPackages(data || []);
-    }
-  };
-
-  const fetchPaymentSettings = async () => {
-    const { data, error } = await supabase
-      .from("payment_settings")
-      .select("*")
-      .single();
-
-    if (!error && data) {
-      setPaymentSettings(data);
     }
   };
 
@@ -106,86 +83,15 @@ export default function Subscription() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!selectedPackage || !proofImage) {
-      toast({
-        title: "Error",
-        description: "Pilih paket dan upload bukti pembayaran",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Tidak terautentikasi");
-
-      // Upload image
-      const fileExt = proofImage.name.split('.').pop();
-      const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
-      
-      // Convert file to base64
-      const reader = new FileReader();
-      reader.readAsDataURL(proofImage);
-      
-      reader.onload = async () => {
-        const base64 = reader.result as string;
-        
-        const selectedPkg = packages.find(p => p.id === selectedPackage);
-        if (!selectedPkg) throw new Error("Paket tidak ditemukan");
-
-        const { error: insertError } = await supabase
-          .from("payment_proofs")
-          .insert({
-            user_id: session.user.id,
-            package_id: selectedPackage,
-            amount: selectedPkg.price,
-            payment_method: paymentMethod,
-            proof_image_url: base64,
-            status: "pending",
-          });
-
-        if (insertError) throw insertError;
-
-        toast({
-          title: "Berhasil",
-          description: "Bukti pembayaran berhasil dikirim. Menunggu verifikasi admin.",
-        });
-
-        setSelectedPackage("");
-        setProofImage(null);
-        setPaymentMethod("transfer");
-        
-        // Reset file input
-        const fileInput = document.getElementById("proof-image") as HTMLInputElement;
-        if (fileInput) fileInput.value = "";
-      };
-
-      reader.onerror = () => {
-        throw new Error("Gagal membaca file");
-      };
-
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
     }).format(price);
   };
+
+  const selectedPkg = packages.find(p => p.id === selectedPackage);
 
   return (
     <Layout>
@@ -236,119 +142,63 @@ export default function Subscription() {
             </CardContent>
           </Card>
 
-          {/* Payment Information */}
+          {/* Payment Section */}
           <div className="space-y-6">
-            {paymentSettings && (
+            {selectedPkg && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="w-5 h-5" />
-                    Informasi Pembayaran
-                  </CardTitle>
+                  <CardTitle>Rincian Pembayaran</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {paymentSettings.bank_name && (
-                    <div className="p-4 bg-muted rounded-lg">
-                      <h4 className="font-semibold mb-2">Transfer Bank</h4>
-                      <div className="space-y-1 text-sm">
-                        <p><strong>Bank:</strong> {paymentSettings.bank_name}</p>
-                        <p><strong>No. Rekening:</strong> {paymentSettings.account_number}</p>
-                        <p><strong>Atas Nama:</strong> {paymentSettings.account_holder}</p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {paymentSettings.qris_code && (
-                    <div className="p-4 bg-muted rounded-lg">
-                      <h4 className="font-semibold mb-2">QRIS</h4>
-                      {paymentSettings.qris_image_url ? (
-                        <img 
-                          src={paymentSettings.qris_image_url} 
-                          alt="QRIS Code" 
-                          className="w-48 h-48 mx-auto"
-                        />
-                      ) : (
-                        <p className="text-sm">{paymentSettings.qris_code}</p>
-                      )}
-                    </div>
-                  )}
+                  <div className="flex justify-between items-center py-2 border-b">
+                    <span className="text-muted-foreground">Paket</span>
+                    <span className="font-semibold">{selectedPkg.name}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b">
+                    <span className="text-muted-foreground">Durasi</span>
+                    <span className="font-semibold">{selectedPkg.duration_days} hari</span>
+                  </div>
+                  <div className="flex justify-between items-center py-3 bg-primary/5 px-4 rounded-lg">
+                    <span className="font-bold text-lg">Total</span>
+                    <span className="font-bold text-lg text-primary">{formatPrice(selectedPkg.price)}</span>
+                  </div>
                 </CardContent>
               </Card>
             )}
 
-            {/* Quick Payment with Mayar */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="w-5 h-5" />
-                  Bayar Otomatis dengan Mayar
-                </CardTitle>
+                <CardTitle>Metode Pembayaran</CardTitle>
+                <CardDescription>Pilih metode pembayaran yang Anda inginkan</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Bayar langsung dengan sistem pembayaran otomatis Mayar. Setelah pembayaran berhasil, langganan Anda akan langsung diperpanjang secara otomatis.
-                  </p>
-                  <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg text-sm">
-                    <p className="font-medium mb-2">📝 Cara kerja:</p>
-                    <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                      <li>Pilih paket di sebelah kiri</li>
-                      <li>Klik tombol "Bayar Sekarang"</li>
-                      <li>Anda akan diarahkan ke halaman pembayaran Mayar</li>
-                      <li>Selesaikan pembayaran</li>
-                      <li>Langganan otomatis diperpanjang</li>
-                    </ol>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="flex flex-col items-center p-4 border rounded-lg bg-muted/30">
+                    <img src={qrisImage} alt="QRIS" className="h-12 mb-2 object-contain" />
+                    <span className="text-sm font-semibold">QRIS</span>
                   </div>
-                  <Button 
-                    onClick={handleMayarPayment} 
-                    className="w-full" 
-                    disabled={loading || !selectedPackage}
-                    size="lg"
-                  >
-                    {loading ? "Memproses..." : "Bayar Sekarang dengan Mayar"}
-                  </Button>
+                  <div className="flex flex-col items-center p-4 border rounded-lg bg-muted/30">
+                    <img src={ewalletImage} alt="E-Wallet" className="h-12 mb-2 object-contain" />
+                    <span className="text-sm font-semibold">E-Wallet</span>
+                  </div>
+                  <div className="flex flex-col items-center p-4 border rounded-lg bg-muted/30">
+                    <img src={transferImage} alt="Transfer" className="h-12 mb-2 object-contain" />
+                    <span className="text-sm font-semibold">Transfer</span>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* Upload Payment Proof */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Upload className="w-5 h-5" />
-                  Upload Bukti Pembayaran Manual
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <Label htmlFor="payment-method">Metode Pembayaran</Label>
-                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="transfer">Transfer Bank</SelectItem>
-                        <SelectItem value="qris">QRIS</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <Button
+                  onClick={handleMayarPayment}
+                  disabled={!selectedPackage || loading}
+                  className="w-full"
+                  size="lg"
+                >
+                  {loading ? "Memproses..." : "Bayar Sekarang"}
+                </Button>
 
-                  <div>
-                    <Label htmlFor="proof-image">Bukti Transfer</Label>
-                    <Input
-                      id="proof-image"
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setProofImage(e.target.files?.[0] || null)}
-                      required
-                    />
-                  </div>
-
-                  <Button type="submit" className="w-full" disabled={loading || !selectedPackage}>
-                    {loading ? "Mengirim..." : "Kirim Bukti Pembayaran"}
-                  </Button>
-                </form>
+                <p className="text-xs text-muted-foreground text-center">
+                  Pembayaran dilakukan melalui Mayar dengan berbagai metode pembayaran yang tersedia
+                </p>
               </CardContent>
             </Card>
           </div>

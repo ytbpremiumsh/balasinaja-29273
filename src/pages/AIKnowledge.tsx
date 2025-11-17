@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Bot, Plus, Trash2, Edit2, X } from "lucide-react";
+import { Bot, Plus, Trash2, Edit2, X, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
 
 interface Knowledge {
   id: string;
@@ -108,6 +109,79 @@ export default function AIKnowledge() {
     }
   };
 
+  const handleExport = () => {
+    const exportData = knowledge.map(({ question, answer }) => ({
+      question,
+      answer
+    }));
+    
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ai-knowledge-export-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success("Data berhasil diexport!");
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const importData = JSON.parse(text);
+
+      if (!Array.isArray(importData)) {
+        toast.error("Format file tidak valid. Harus berupa array.");
+        return;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("You must be logged in");
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const item of importData) {
+        if (!item.question || !item.answer) {
+          errorCount++;
+          continue;
+        }
+
+        const { error } = await supabase.from("ai_knowledge_base").insert({
+          question: item.question.trim(),
+          answer: item.answer.trim(),
+          user_id: user.id,
+        });
+
+        if (error) {
+          errorCount++;
+        } else {
+          successCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`${successCount} data berhasil diimport!`);
+        fetchKnowledge();
+      }
+      if (errorCount > 0) {
+        toast.error(`${errorCount} data gagal diimport`);
+      }
+    } catch (error) {
+      toast.error("Gagal membaca file. Pastikan format JSON valid.");
+    }
+
+    // Reset input
+    e.target.value = '';
+  };
+
   return (
     <Layout>
       <ExpiredUserGuard>
@@ -121,6 +195,36 @@ export default function AIKnowledge() {
             Data ini digunakan AI sebagai konteks untuk memberikan jawaban yang lebih akurat
           </p>
         </div>
+
+        {/* Export/Import Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Export / Import Data</CardTitle>
+          </CardHeader>
+          <CardContent className="flex gap-3">
+            <Button onClick={handleExport} variant="outline" className="flex items-center gap-2">
+              <Download className="w-4 h-4" />
+              Export JSON
+            </Button>
+            <div>
+              <Input
+                type="file"
+                accept=".json"
+                onChange={handleImport}
+                className="hidden"
+                id="import-file"
+              />
+              <Button 
+                onClick={() => document.getElementById('import-file')?.click()}
+                variant="outline" 
+                className="flex items-center gap-2"
+              >
+                <Upload className="w-4 h-4" />
+                Import JSON
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Add/Edit Form */}
         <Card className="shadow-card gradient-card">
