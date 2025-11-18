@@ -298,7 +298,7 @@ export default function APIConfiguration() {
         {/* AI CONFIG */}
         <Card>
           <CardHeader>
-            <CardTitle>AI Configuration</CardTitle>
+            <CardTitle>AI Konfigurasi</CardTitle>
             <CardDescription>Konfigurasi vendor & model AI yang digunakan</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
