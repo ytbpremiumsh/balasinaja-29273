@@ -445,7 +445,6 @@ export default function APIConfiguration() {
                 </p>
               </div>
             </div>
-            
           </CardContent>
         </Card>
 
