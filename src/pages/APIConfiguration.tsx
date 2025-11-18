@@ -373,32 +373,6 @@ export default function APIConfiguration() {
                 placeholder="Tulis prompt dasar untuk AI"
               />
             </div>
-
-            {/* TYPING INDICATOR TOGGLE */}
-            <div
-              className={`p-4 rounded-lg border flex items-center justify-between transition ${
-                typingIndicatorEnabled ? "border-green-500 bg-green-50" : "border-muted bg-muted/30"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Bot className={`w-6 h-6 ${typingIndicatorEnabled ? "text-green-600" : "text-muted-foreground"}`} />
-                <div>
-                  <p className="font-medium">Typing Indicator WhatsApp</p>
-                  <p className="text-sm text-muted-foreground">
-                    Status:{" "}
-                    <span className={`font-semibold ${typingIndicatorEnabled ? "text-green-600" : "text-red-500"}`}>
-                      {typingIndicatorEnabled ? "Aktif" : "Nonaktif"}
-                    </span>
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant={typingIndicatorEnabled ? "destructive" : "default"}
-                onClick={() => setTypingIndicatorEnabled(!typingIndicatorEnabled)}
-              >
-                {typingIndicatorEnabled ? "Nonaktifkan" : "Aktifkan"}
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
