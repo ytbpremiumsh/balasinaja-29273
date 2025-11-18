@@ -405,7 +405,7 @@ export default function APIConfiguration() {
       {/* DELAY BALAS AI */}
         <Card>
           <CardHeader>
-            <CardTitle>Delay Balas AI</CardTitle>
+            <CardTitle>Delay Balas AI </CardTitle>
             <CardDescription>Masukkan Delay pengirim pesan AI</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
