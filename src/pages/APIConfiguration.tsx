@@ -406,13 +406,12 @@ export default function APIConfiguration() {
         <Card>
           <CardHeader>
             <CardTitle>Delay Balas AI</CardTitle>
-            <CardDescription>Masukkan kredensial API dari OneSender</CardDescription>
+            <CardDescription>Masukkan Delay pengirim pesan AI</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
            {/* DELAY SETTINGS */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center gap-2">
-                <h4 className="font-medium">⏱️ Delay Balas AI (Anti-Spam)</h4>
               </div>
               
               <div className="space-y-2">
