@@ -18,6 +18,7 @@ import { Loader2, Save, Settings, Copy, Check, Bot } from "lucide-react";
 
 export default function APIConfiguration() {
   const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -30,15 +31,31 @@ export default function APIConfiguration() {
   const [aiModel, setAiModel] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [aiReplyEnabled, setAiReplyEnabled] = useState(true);
+  const [typingIndicatorEnabled, setTypingIndicatorEnabled] = useState(true);
   const [webhookToken, setWebhookToken] = useState("");
   const [minDelay, setMinDelay] = useState("5");
   const [maxDelay, setMaxDelay] = useState("15");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const init = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        // Check admin role
+        const { data: roles } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .eq('role', 'admin')
+          .maybeSingle();
+        
+        setIsAdmin(!!roles);
+      }
+      
       loadSettings();
-    });
+    };
+    init();
   }, []);
 
   const loadSettings = async () => {
@@ -56,6 +73,7 @@ export default function APIConfiguration() {
       setAiModel(map.ai_model || "");
       setSystemPrompt(map.system_prompt || "");
       setAiReplyEnabled(map.ai_reply_enabled === "true");
+      setTypingIndicatorEnabled(map.typing_indicator_enabled !== "false");
       setMinDelay(map.min_delay_seconds || "5");
       setMaxDelay(map.max_delay_seconds || "15");
 
@@ -98,6 +116,7 @@ export default function APIConfiguration() {
         { key: "ai_model", value: aiModel },
         { key: "system_prompt", value: systemPrompt },
         { key: "ai_reply_enabled", value: aiReplyEnabled ? "true" : "false" },
+        { key: "typing_indicator_enabled", value: typingIndicatorEnabled ? "true" : "false" },
         { key: "min_delay_seconds", value: minDelay },
         { key: "max_delay_seconds", value: maxDelay },
       ];
@@ -194,17 +213,19 @@ export default function APIConfiguration() {
               </div>
             </div>
 
-            <div>
-              <Label className="text-sm font-semibold mb-2 block">Mayar Webhook</Label>
-              <div className="rounded-lg bg-muted p-4 flex items-center gap-2">
-                <code className="text-xs bg-background rounded px-3 py-2 flex-1 overflow-x-auto break-all">
-                  {mayarWebhookUrl}
-                </code>
-                <Button variant="outline" size="icon" onClick={() => copyWebhook(mayarWebhookUrl, "Mayar Webhook")}>
-                  {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                </Button>
+            {isAdmin && (
+              <div>
+                <Label className="text-sm font-semibold mb-2 block">Mayar Webhook (Admin Only)</Label>
+                <div className="rounded-lg bg-muted p-4 flex items-center gap-2">
+                  <code className="text-xs bg-background rounded px-3 py-2 flex-1 overflow-x-auto break-all">
+                    {mayarWebhookUrl}
+                  </code>
+                  <Button variant="outline" size="icon" onClick={() => copyWebhook(mayarWebhookUrl, "Mayar Webhook")}>
+                    {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-3">
               <p className="text-sm font-medium text-yellow-800 mb-1">⚠️ Update Required di OneSender & Mayar</p>
@@ -227,6 +248,32 @@ export default function APIConfiguration() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* TYPING INDICATOR TOGGLE */}
+            <div
+              className={`p-4 rounded-lg border flex items-center justify-between transition ${
+                typingIndicatorEnabled ? "border-green-500 bg-green-50" : "border-muted bg-muted/30"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Bot className={`w-6 h-6 ${typingIndicatorEnabled ? "text-green-600" : "text-muted-foreground"}`} />
+                <div>
+                  <p className="font-medium">Typing Indicator WhatsApp</p>
+                  <p className="text-sm text-muted-foreground">
+                    Status:{" "}
+                    <span className={`font-semibold ${typingIndicatorEnabled ? "text-green-600" : "text-red-500"}`}>
+                      {typingIndicatorEnabled ? "Aktif" : "Nonaktif"}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant={typingIndicatorEnabled ? "destructive" : "default"}
+                onClick={() => setTypingIndicatorEnabled(!typingIndicatorEnabled)}
+              >
+                {typingIndicatorEnabled ? "Nonaktifkan" : "Aktifkan"}
+              </Button>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="minDelay">Minimal Delay (detik)</Label>
               <Input
@@ -262,7 +309,7 @@ export default function APIConfiguration() {
             <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
               <p className="text-sm font-medium text-blue-800 mb-1">💡 Tips Anti-Spam</p>
               <p className="text-xs text-blue-700">
-                Delay yang lebih lama membuat balasan terlihat lebih natural dan mengurangi risiko WhatsApp mendeteksi sebagai spam. Disarankan minimal 5 detik dan maksimal 15-30 detik untuk hasil optimal.
+                Delay yang lebih lama membuat balasan terlihat lebih natural dan mengurangi risiko WhatsApp mendeteksi sebagai spam. Typing indicator menambah kesan seperti manusia sedang mengetik. Disarankan minimal 5 detik dan maksimal 15-30 detik untuk hasil optimal.
               </p>
             </div>
           </CardContent>

@@ -194,24 +194,59 @@ serve(async (req) => {
     if (aiReplyEnabled && (messageType === 'text' || messageType === 'image')) {
       console.log('🤖 Attempting AI reply...');
       
-      // Get delay settings
+      // Get delay and typing indicator settings
       const { data: delaySettings } = await supabase
         .from('settings')
         .select('key, value')
         .eq('user_id', userId)
-        .in('key', ['min_delay_seconds', 'max_delay_seconds']);
+        .in('key', ['min_delay_seconds', 'max_delay_seconds', 'typing_indicator_enabled', 'onesender_api_url', 'onesender_api_key']);
 
       let minDelay = 5;
       let maxDelay = 15;
+      let typingEnabled = true;
+      let onesenderApiUrl = '';
+      let onesenderApiKey = '';
 
       delaySettings?.forEach(setting => {
         if (setting.key === 'min_delay_seconds') minDelay = parseInt(setting.value) || 5;
         if (setting.key === 'max_delay_seconds') maxDelay = parseInt(setting.value) || 15;
+        if (setting.key === 'typing_indicator_enabled') typingEnabled = setting.value !== 'false';
+        if (setting.key === 'onesender_api_url') onesenderApiUrl = setting.value || '';
+        if (setting.key === 'onesender_api_key') onesenderApiKey = setting.value || '';
       });
 
       // Calculate random delay
       const randomDelay = Math.floor(Math.random() * (maxDelay - minDelay + 1) + minDelay);
       console.log(`⏱️ Waiting ${randomDelay} seconds before replying (anti-spam)...`);
+      
+      // Send typing indicator if enabled
+      if (typingEnabled && onesenderApiUrl && onesenderApiKey) {
+        try {
+          console.log(`⌨️ Sending typing indicator to ${phone}...`);
+          const typingPayload = {
+            to: phone,
+            type: 'typing',
+            typing: { status: 'composing' }
+          };
+          
+          const typingResponse = await fetch(onesenderApiUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${onesenderApiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(typingPayload)
+          });
+          
+          if (typingResponse.ok) {
+            console.log('✅ Typing indicator sent successfully');
+          } else {
+            console.log('⚠️ Failed to send typing indicator:', await typingResponse.text());
+          }
+        } catch (err) {
+          console.log('⚠️ Error sending typing indicator:', err);
+        }
+      }
       
       // Wait for the delay
       await new Promise(resolve => setTimeout(resolve, randomDelay * 1000));
