@@ -228,13 +228,12 @@ export default function APIConfiguration() {
             )}
 
             <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-3">
-              <p className="text-sm font-medium text-yellow-800 mb-1">⚠️ Update Required di OneSender & Mayar</p>
               <p className="text-xs text-yellow-700">
-                URL webhook telah diperbarui untuk keamanan. Silakan copy URL baru di atas dan update di dashboard OneSender dan Mayar Anda.
+                ⚠️Silakan copy URL baru di atas dan update di dashboard Wa Gateway Anda.
               </p>
             </div>
             <p className="text-sm text-muted-foreground">
-              Gunakan URL ini di dashboard OneSender dan Mayar Anda. Sistem akan otomatis memproses pesan dengan token autentikasi yang aman.
+              Gunakan URL ini di dashboard WA Gateway Anda. Sistem akan otomatis memproses pesan dengan token autentikasi yang aman.
             </p>
           </CardContent>
         </Card>
@@ -330,6 +329,51 @@ export default function APIConfiguration() {
               </Button>
             </div>
 
+            
+
+            <div className="space-y-2">
+              <Label>AI Vendor</Label>
+              <Select value={aiVendor} onValueChange={setAiVendor}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih vendor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="openrouter">OpenRouter</SelectItem>
+                  <SelectItem value="openai">OpenAI</SelectItem>
+                  <SelectItem value="gemini">Gemini</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>AI API Key</Label>
+              <Input
+                type="password"
+                value={aiApiKey}
+                onChange={(e) => setAiApiKey(e.target.value)}
+                placeholder="Masukkan API key AI"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Model</Label>
+              <Input
+                value={aiModel}
+                onChange={(e) => setAiModel(e.target.value)}
+                placeholder="cth: gpt-4-turbo"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>System Prompt</Label>
+              <Textarea
+                rows={4}
+                value={systemPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value)}
+                placeholder="Tulis prompt dasar untuk AI"
+              />
+            </div>
+
             {/* TYPING INDICATOR TOGGLE */}
             <div
               className={`p-4 rounded-lg border flex items-center justify-between transition ${
@@ -401,49 +445,7 @@ export default function APIConfiguration() {
                 </p>
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label>AI Vendor</Label>
-              <Select value={aiVendor} onValueChange={setAiVendor}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih vendor" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="openrouter">OpenRouter</SelectItem>
-                  <SelectItem value="openai">OpenAI</SelectItem>
-                  <SelectItem value="gemini">Gemini</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>AI API Key</Label>
-              <Input
-                type="password"
-                value={aiApiKey}
-                onChange={(e) => setAiApiKey(e.target.value)}
-                placeholder="Masukkan API key AI"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Model</Label>
-              <Input
-                value={aiModel}
-                onChange={(e) => setAiModel(e.target.value)}
-                placeholder="cth: gpt-4-turbo"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>System Prompt</Label>
-              <Textarea
-                rows={4}
-                value={systemPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
-                placeholder="Tulis prompt dasar untuk AI"
-              />
-            </div>
+            
           </CardContent>
         </Card>
 
