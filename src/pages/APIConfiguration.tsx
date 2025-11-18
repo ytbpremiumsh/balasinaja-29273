@@ -402,10 +402,10 @@ export default function APIConfiguration() {
           </CardContent>
         </Card>
 
-      {/* ONESENDER CONFIG */}
+      {/* DELAY BALAS AI */}
         <Card>
           <CardHeader>
-            <CardTitle>OneSender API</CardTitle>
+            <CardTitle>Delay Balas AI</CardTitle>
             <CardDescription>Masukkan kredensial API dari OneSender</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
