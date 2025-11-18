@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { MessageSquare, Inbox, Bot, Users, Sparkles, Brain, Shield, UserCog, Package, ScrollText, CreditCard, Bell, Radio, BellDot, ChevronDown, Settings2, LayoutDashboard, FileText } from "lucide-react";
+import { MessageSquare, Inbox, Bot, Users, Sparkles, Brain, Shield, UserCog, Package, ScrollText, CreditCard, Bell, Radio, BellDot, ChevronDown, Settings2, LayoutDashboard, FileText, Ticket } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,7 @@ const adminNavigation = [
   { name: "Pengaturan Pembayaran", href: "/admin/payment-settings", icon: CreditCard },
   { name: "Notifikasi WhatsApp", href: "/admin/whatsapp-notifications", icon: MessageSquare },
   { name: "Template WhatsApp", href: "/admin/whatsapp-templates", icon: FileText },
+  { name: "Manajemen Tiket", href: "/admin/tickets", icon: Ticket },
   { name: "Log Aktivitas", href: "/admin/logs", icon: ScrollText },
 ];
 
