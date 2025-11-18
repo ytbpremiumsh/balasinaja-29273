@@ -239,81 +239,6 @@ export default function APIConfiguration() {
           </CardContent>
         </Card>
 
-        {/* AI DELAY CONFIG */}
-        <Card>
-          <CardHeader>
-            <CardTitle>⏱️ Delay Balas AI (Anti-Spam)</CardTitle>
-            <CardDescription>
-              Atur jeda waktu balasan AI untuk menghindari spam dan suspend WhatsApp
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* TYPING INDICATOR TOGGLE */}
-            <div
-              className={`p-4 rounded-lg border flex items-center justify-between transition ${
-                typingIndicatorEnabled ? "border-green-500 bg-green-50" : "border-muted bg-muted/30"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Bot className={`w-6 h-6 ${typingIndicatorEnabled ? "text-green-600" : "text-muted-foreground"}`} />
-                <div>
-                  <p className="font-medium">Typing Indicator WhatsApp</p>
-                  <p className="text-sm text-muted-foreground">
-                    Status:{" "}
-                    <span className={`font-semibold ${typingIndicatorEnabled ? "text-green-600" : "text-red-500"}`}>
-                      {typingIndicatorEnabled ? "Aktif" : "Nonaktif"}
-                    </span>
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant={typingIndicatorEnabled ? "destructive" : "default"}
-                onClick={() => setTypingIndicatorEnabled(!typingIndicatorEnabled)}
-              >
-                {typingIndicatorEnabled ? "Nonaktifkan" : "Aktifkan"}
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="minDelay">Minimal Delay (detik)</Label>
-              <Input
-                id="minDelay"
-                type="number"
-                min="0"
-                max="60"
-                value={minDelay}
-                onChange={(e) => setMinDelay(e.target.value)}
-                placeholder="5"
-              />
-              <p className="text-xs text-muted-foreground">
-                Waktu tunggu minimal sebelum AI membalas (disarankan 5-10 detik)
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="maxDelay">Maksimal Delay (detik)</Label>
-              <Input
-                id="maxDelay"
-                type="number"
-                min="0"
-                max="120"
-                value={maxDelay}
-                onChange={(e) => setMaxDelay(e.target.value)}
-                placeholder="15"
-              />
-              <p className="text-xs text-muted-foreground">
-                Waktu tunggu maksimal sebelum AI membalas (disarankan 10-30 detik)
-              </p>
-            </div>
-
-            <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
-              <p className="text-sm font-medium text-blue-800 mb-1">💡 Tips Anti-Spam</p>
-              <p className="text-xs text-blue-700">
-                Delay yang lebih lama membuat balasan terlihat lebih natural dan mengurangi risiko WhatsApp mendeteksi sebagai spam. Typing indicator menambah kesan seperti manusia sedang mengetik. Disarankan minimal 5 detik dan maksimal 15-30 detik untuk hasil optimal.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* WEBHOOK URL - OLD (Keep for reference) */}
         <Card className="hidden">
@@ -379,7 +304,7 @@ export default function APIConfiguration() {
           </CardHeader>
           <CardContent className="space-y-3">
             
-            {/* TOGGLE DALAM CARD */}
+            {/* TOGGLE BALASAN AI */}
             <div
               className={`p-4 rounded-lg border flex items-center justify-between transition ${
                 aiReplyEnabled ? "border-green-500 bg-green-50" : "border-muted bg-muted/30"
@@ -403,6 +328,78 @@ export default function APIConfiguration() {
               >
                 {aiReplyEnabled ? "Nonaktifkan" : "Aktifkan"}
               </Button>
+            </div>
+
+            {/* TYPING INDICATOR TOGGLE */}
+            <div
+              className={`p-4 rounded-lg border flex items-center justify-between transition ${
+                typingIndicatorEnabled ? "border-green-500 bg-green-50" : "border-muted bg-muted/30"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Bot className={`w-6 h-6 ${typingIndicatorEnabled ? "text-green-600" : "text-muted-foreground"}`} />
+                <div>
+                  <p className="font-medium">Typing Indicator WhatsApp</p>
+                  <p className="text-sm text-muted-foreground">
+                    Status:{" "}
+                    <span className={`font-semibold ${typingIndicatorEnabled ? "text-green-600" : "text-red-500"}`}>
+                      {typingIndicatorEnabled ? "Aktif" : "Nonaktif"}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant={typingIndicatorEnabled ? "destructive" : "default"}
+                onClick={() => setTypingIndicatorEnabled(!typingIndicatorEnabled)}
+              >
+                {typingIndicatorEnabled ? "Nonaktifkan" : "Aktifkan"}
+              </Button>
+            </div>
+
+            {/* DELAY SETTINGS */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center gap-2">
+                <h4 className="font-medium">⏱️ Delay Balas AI (Anti-Spam)</h4>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="minDelay">Minimal Delay (detik)</Label>
+                <Input
+                  id="minDelay"
+                  type="number"
+                  min="0"
+                  max="60"
+                  value={minDelay}
+                  onChange={(e) => setMinDelay(e.target.value)}
+                  placeholder="5"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Waktu tunggu minimal sebelum AI membalas (disarankan 5-10 detik)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="maxDelay">Maksimal Delay (detik)</Label>
+                <Input
+                  id="maxDelay"
+                  type="number"
+                  min="0"
+                  max="120"
+                  value={maxDelay}
+                  onChange={(e) => setMaxDelay(e.target.value)}
+                  placeholder="15"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Waktu tunggu maksimal sebelum AI membalas (disarankan 10-30 detik)
+                </p>
+              </div>
+
+              <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+                <p className="text-sm font-medium text-blue-800 mb-1">💡 Tips Anti-Spam</p>
+                <p className="text-xs text-blue-700">
+                  Delay yang lebih lama membuat balasan terlihat lebih natural dan mengurangi risiko WhatsApp mendeteksi sebagai spam. Typing indicator menambah kesan seperti manusia sedang mengetik. Disarankan minimal 5 detik dan maksimal 15-30 detik untuk hasil optimal.
+                </p>
+              </div>
             </div>
 
             <div className="space-y-2">

@@ -26,6 +26,8 @@ import PaymentSettings from "./pages/admin/PaymentSettings";
 import WhatsAppNotifications from "./pages/admin/WhatsAppNotifications";
 import WhatsAppTemplates from "./pages/admin/WhatsAppTemplates";
 import ActivityLogs from "./pages/admin/ActivityLogs";
+import TicketManagement from "./pages/admin/TicketManagement";
+import Tickets from "./pages/Tickets";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
 
@@ -52,6 +54,7 @@ const App = () => (
           <Route path="/api-configuration" element={<ProtectedRoute><APIConfiguration /></ProtectedRoute>} />
           <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
           <Route path="/payment-success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />
+          <Route path="/tickets" element={<ProtectedRoute><Tickets /></ProtectedRoute>} />
           
           {/* Admin Routes */}
           <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />
@@ -61,6 +64,7 @@ const App = () => (
           <Route path="/admin/payment-settings" element={<ProtectedRoute><AdminRoute><PaymentSettings /></AdminRoute></ProtectedRoute>} />
           <Route path="/admin/whatsapp-notifications" element={<ProtectedRoute><AdminRoute><WhatsAppNotifications /></AdminRoute></ProtectedRoute>} />
           <Route path="/admin/whatsapp-templates" element={<ProtectedRoute><AdminRoute><WhatsAppTemplates /></AdminRoute></ProtectedRoute>} />
+          <Route path="/admin/tickets" element={<ProtectedRoute><AdminRoute><TicketManagement /></AdminRoute></ProtectedRoute>} />
           <Route path="/admin/logs" element={<ProtectedRoute><AdminRoute><ActivityLogs /></AdminRoute></ProtectedRoute>} />
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

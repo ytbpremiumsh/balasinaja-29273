@@ -215,18 +215,27 @@ serve(async (req) => {
                     year: 'numeric'
                   });
 
+                  // Get the base URL from the request headers or use fallback
+                  const referer = req.headers.get('referer') || req.headers.get('origin') || '';
+                  const baseUrl = referer ? new URL(referer).origin : 'https://app.lovable.dev';
+                  const paymentSuccessUrl = `${baseUrl}/payment-success?payment_id=${paymentProof.id}`;
+
                   let waMessage = template?.message_template || `Halo {NAME} 👋
 
 Pembayaran Anda untuk paket *{PACKAGE_NAME}* telah berhasil dikonfirmasi! ✅
 
 Langganan Anda telah diperpanjang hingga {EXPIRE_DATE}.
 
+Lihat detail pembayaran Anda di:
+${paymentSuccessUrl}
+
 Terima kasih atas kepercayaan Anda menggunakan BalasinAja!`;
 
                   waMessage = waMessage
                     .replace(/{NAME}/g, userProfile.name || 'User')
                     .replace(/{PACKAGE_NAME}/g, packageData.name)
-                    .replace(/{EXPIRE_DATE}/g, expiryDateFormatted);
+                    .replace(/{EXPIRE_DATE}/g, expiryDateFormatted)
+                    .replace(/{PAYMENT_URL}/g, paymentSuccessUrl);
 
                   // Send WhatsApp message
                   const waResponse = await fetch(apiUrl, {
