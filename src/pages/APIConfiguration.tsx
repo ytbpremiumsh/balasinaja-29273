@@ -399,8 +399,17 @@ export default function APIConfiguration() {
                 {typingIndicatorEnabled ? "Nonaktifkan" : "Aktifkan"}
               </Button>
             </div>
+          </CardContent>
+        </Card>
 
-            {/* DELAY SETTINGS */}
+      {/* ONESENDER CONFIG */}
+        <Card>
+          <CardHeader>
+            <CardTitle>OneSender API</CardTitle>
+            <CardDescription>Masukkan kredensial API dari OneSender</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+           {/* DELAY SETTINGS */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center gap-2">
                 <h4 className="font-medium">⏱️ Delay Balas AI (Anti-Spam)</h4>
@@ -463,17 +472,16 @@ export default function APIConfiguration() {
                 {typingIndicatorEnabled ? "Nonaktifkan" : "Aktifkan"}
               </Button>
             </div>
-
-
               <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
                 <p className="text-sm font-medium text-blue-800 mb-1">💡 Tips Anti-Spam</p>
                 <p className="text-xs text-blue-700">
                   Delay yang lebih lama membuat balasan terlihat lebih natural dan mengurangi risiko WhatsApp mendeteksi sebagai spam. Typing indicator menambah kesan seperti manusia sedang mengetik. Disarankan minimal 5 detik dan maksimal 15-30 detik untuk hasil optimal.
                 </p>
               </div>
-            </div>
+              </div>
           </CardContent>
         </Card>
+
 
         {/* SAVE BUTTON */}
         <div className="flex justify-end">
