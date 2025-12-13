@@ -215,9 +215,8 @@ serve(async (req) => {
                     year: 'numeric'
                   });
 
-                  // Get the base URL from the request headers or use fallback
-                  const referer = req.headers.get('referer') || req.headers.get('origin') || '';
-                  const baseUrl = referer ? new URL(referer).origin : 'https://app.lovable.dev';
+                  // Use custom domain for payment success URL
+                  const baseUrl = 'https://balasinaja.com';
                   const paymentSuccessUrl = `${baseUrl}/payment-success?payment_id=${paymentProof.id}`;
 
                   let waMessage = template?.message_template || `Halo {NAME} 👋
