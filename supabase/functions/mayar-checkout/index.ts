@@ -84,7 +84,7 @@ serve(async (req) => {
         name: profile.name || 'User',
         email: profile.email,
         mobile: profile.phone || '',
-        redirectUrl: `${supabaseUrl.replace('supabase.co', 'lovable.app')}/payment-success?payment_id=${paymentProof.id}`,
+        redirectUrl: `https://balasinaja.com/payment-success?payment_id=${paymentProof.id}`,
         description: `Paket ${packageData.name}`,
         expiredAt: expiryDate.toISOString(),
         items: [{

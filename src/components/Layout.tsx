@@ -157,15 +157,30 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   };
 
   const fetchNewUsers = async () => {
+    // Check if user has already viewed the user management page
+    const lastViewed = localStorage.getItem('userManagementLastViewed');
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     
-    const { count } = await supabase
+    const { count, data } = await supabase
       .from('profiles')
-      .select('*', { count: 'exact', head: true })
+      .select('created_at', { count: 'exact' })
       .gte('created_at', yesterday.toISOString());
     
-    setNewUsersCount(count || 0);
+    // Only show badge if there are new users since last viewed
+    if (lastViewed && data) {
+      const newSinceViewed = data.filter(
+        (profile) => new Date(profile.created_at || '') > new Date(lastViewed)
+      ).length;
+      setNewUsersCount(newSinceViewed);
+    } else {
+      setNewUsersCount(count || 0);
+    }
+  };
+
+  const markUserManagementViewed = () => {
+    localStorage.setItem('userManagementLastViewed', new Date().toISOString());
+    setNewUsersCount(0);
   };
 
 
@@ -275,6 +290,11 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 <Link
                   key={item.name}
                   to={item.href}
+                  onClick={() => {
+                    if (item.href === "/admin/users") {
+                      markUserManagementViewed();
+                    }
+                  }}
                   className={cn(
                     "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all whitespace-nowrap relative",
                     isActive

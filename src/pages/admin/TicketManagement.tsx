@@ -4,10 +4,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, MessageSquare, CheckCircle, Clock, Send } from "lucide-react";
+import { Loader2, MessageSquare, CheckCircle, Clock, Send, Lock, Unlock } from "lucide-react";
+
+interface TicketMessage {
+  id: string;
+  ticket_id: string;
+  sender_type: string;
+  sender_id: string;
+  message: string;
+  created_at: string;
+}
 
 interface Ticket {
   id: string;
@@ -25,14 +33,20 @@ export default function TicketManagement() {
   const [loading, setLoading] = useState(true);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [ticketMessages, setTicketMessages] = useState<TicketMessage[]>([]);
   const [reply, setReply] = useState("");
-  const [newStatus, setNewStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     loadTickets();
   }, []);
+
+  useEffect(() => {
+    if (selectedTicket) {
+      loadTicketMessages(selectedTicket.id);
+    }
+  }, [selectedTicket]);
 
   const loadTickets = async () => {
     try {
@@ -55,6 +69,21 @@ export default function TicketManagement() {
     }
   };
 
+  const loadTicketMessages = async (ticketId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("ticket_messages")
+        .select("*")
+        .eq("ticket_id", ticketId)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      setTicketMessages(data || []);
+    } catch (error) {
+      console.error("Error loading ticket messages:", error);
+    }
+  };
+
   const handleReply = async () => {
     if (!selectedTicket || !reply.trim()) {
       toast({
@@ -70,24 +99,28 @@ export default function TicketManagement() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      const updateData: any = {
-        admin_reply: reply.trim(),
-        replied_by: session.user.id,
-        replied_at: new Date().toISOString(),
-      };
+      // Insert message to conversation
+      const { error: msgError } = await supabase.from("ticket_messages").insert({
+        ticket_id: selectedTicket.id,
+        sender_type: "admin",
+        sender_id: session.user.id,
+        message: reply.trim(),
+      });
 
-      if (newStatus) {
-        updateData.status = newStatus;
-      } else if (selectedTicket.status === "open") {
-        updateData.status = "replied";
-      }
+      if (msgError) throw msgError;
 
-      const { error } = await supabase
+      // Update ticket status and admin_reply for backwards compatibility
+      const { error: updateError } = await supabase
         .from("tickets")
-        .update(updateData)
+        .update({
+          admin_reply: reply.trim(),
+          replied_by: session.user.id,
+          replied_at: new Date().toISOString(),
+          status: "replied",
+        })
         .eq("id", selectedTicket.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
       toast({
         title: "Berhasil",
@@ -95,8 +128,8 @@ export default function TicketManagement() {
       });
 
       setReply("");
-      setNewStatus("");
-      setSelectedTicket(null);
+      setSelectedTicket({ ...selectedTicket, status: "replied", admin_reply: reply.trim() });
+      loadTicketMessages(selectedTicket.id);
       loadTickets();
     } catch (error) {
       console.error("Error replying to ticket:", error);
@@ -107,6 +140,62 @@ export default function TicketManagement() {
       });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleCloseTicket = async () => {
+    if (!selectedTicket) return;
+
+    try {
+      const { error } = await supabase
+        .from("tickets")
+        .update({ status: "closed" })
+        .eq("id", selectedTicket.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Berhasil",
+        description: "Tiket berhasil ditutup",
+      });
+
+      setSelectedTicket({ ...selectedTicket, status: "closed" });
+      loadTickets();
+    } catch (error) {
+      console.error("Error closing ticket:", error);
+      toast({
+        title: "Error",
+        description: "Gagal menutup tiket",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleReopenTicket = async () => {
+    if (!selectedTicket) return;
+
+    try {
+      const { error } = await supabase
+        .from("tickets")
+        .update({ status: "open" })
+        .eq("id", selectedTicket.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Berhasil",
+        description: "Tiket berhasil dibuka kembali",
+      });
+
+      setSelectedTicket({ ...selectedTicket, status: "open" });
+      loadTickets();
+    } catch (error) {
+      console.error("Error reopening ticket:", error);
+      toast({
+        title: "Error",
+        description: "Gagal membuka kembali tiket",
+        variant: "destructive",
+      });
     }
   };
 
@@ -182,8 +271,7 @@ export default function TicketManagement() {
                   }`}
                   onClick={() => {
                     setSelectedTicket(ticket);
-                    setReply(ticket.admin_reply || "");
-                    setNewStatus("");
+                    setReply("");
                   }}
                 >
                   <CardHeader>
@@ -212,7 +300,7 @@ export default function TicketManagement() {
 
           {/* Detail & Balasan */}
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Detail Tiket</h2>
+            <h2 className="text-xl font-semibold">Detail & Percakapan</h2>
             {!selectedTicket ? (
               <Card>
                 <CardContent className="py-8 text-center text-muted-foreground">
@@ -231,62 +319,97 @@ export default function TicketManagement() {
                           {getPriorityBadge(selectedTicket.priority)}
                         </div>
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <p className="text-sm font-medium mb-1">Pesan User:</p>
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                        {selectedTicket.message}
-                      </p>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Dibuat: {new Date(selectedTicket.created_at).toLocaleString("id-ID")}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Balas Tiket</CardTitle>
-                    <CardDescription>
-                      {selectedTicket.admin_reply
-                        ? "Update balasan Anda"
-                        : "Kirim balasan ke pengguna"}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Textarea
-                        value={reply}
-                        onChange={(e) => setReply(e.target.value)}
-                        placeholder="Tulis balasan untuk pengguna..."
-                        rows={6}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Status Tiket</label>
-                      <Select value={newStatus} onValueChange={setNewStatus}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Pilih status (opsional)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="open">Terbuka</SelectItem>
-                          <SelectItem value="replied">Dibalas</SelectItem>
-                          <SelectItem value="closed">Selesai</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <Button onClick={handleReply} disabled={submitting}>
-                      {submitting ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {selectedTicket.status === "closed" ? (
+                        <Button variant="outline" size="sm" onClick={handleReopenTicket}>
+                          <Unlock className="w-4 h-4 mr-1" />
+                          Buka Kembali
+                        </Button>
                       ) : (
-                        <Send className="w-4 h-4 mr-2" />
+                        <Button variant="destructive" size="sm" onClick={handleCloseTicket}>
+                          <Lock className="w-4 h-4 mr-1" />
+                          Tutup Tiket
+                        </Button>
                       )}
-                      {selectedTicket.admin_reply ? "Update Balasan" : "Kirim Balasan"}
-                    </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Conversation Messages */}
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                      {/* Initial message */}
+                      <div className="bg-primary/10 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-medium text-primary">User</span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(selectedTicket.created_at).toLocaleString("id-ID")}
+                          </span>
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap">{selectedTicket.message}</p>
+                      </div>
+
+                      {/* Legacy admin reply */}
+                      {selectedTicket.admin_reply && ticketMessages.length === 0 && (
+                        <div className="bg-muted rounded-lg p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-medium text-secondary-foreground">Admin</span>
+                            {selectedTicket.replied_at && (
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(selectedTicket.replied_at).toLocaleString("id-ID")}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap">{selectedTicket.admin_reply}</p>
+                        </div>
+                      )}
+
+                      {/* Conversation messages */}
+                      {ticketMessages.slice(1).map((msg) => (
+                        <div
+                          key={msg.id}
+                          className={`rounded-lg p-3 ${
+                            msg.sender_type === "user" ? "bg-primary/10" : "bg-muted"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-xs font-medium ${
+                              msg.sender_type === "user" ? "text-primary" : "text-secondary-foreground"
+                            }`}>
+                              {msg.sender_type === "user" ? "User" : "Admin"}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(msg.created_at).toLocaleString("id-ID")}
+                            </span>
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Reply Form */}
+                    {selectedTicket.status !== "closed" ? (
+                      <div className="border-t pt-4 space-y-3">
+                        <Textarea
+                          value={reply}
+                          onChange={(e) => setReply(e.target.value)}
+                          placeholder="Tulis balasan untuk pengguna..."
+                          rows={4}
+                        />
+                        <Button onClick={handleReply} disabled={submitting} className="w-full">
+                          {submitting ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Send className="w-4 h-4 mr-2" />
+                          )}
+                          Kirim Balasan
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="border-t pt-4">
+                        <div className="bg-muted rounded-lg p-4 flex items-center gap-3 text-muted-foreground">
+                          <Lock className="w-5 h-5" />
+                          <p className="text-sm">Tiket ini sudah ditutup. Klik "Buka Kembali" untuk melanjutkan percakapan.</p>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </>

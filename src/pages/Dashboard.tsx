@@ -15,6 +15,7 @@ import logo from "@/assets/BalasinAja.png";
 export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [aiReplyEnabled, setAiReplyEnabled] = useState(true);
+  const [webhookToken, setWebhookToken] = useState("");
   const { toast } = useToast();
   const [stats, setStats] = useState({
     totalMessages: 0,
@@ -37,9 +38,26 @@ export default function Dashboard() {
       setUser(session?.user ?? null);
       if (session?.user) {
         loadAiReplyStatus();
+        loadWebhookToken(session.user.id);
       }
     });
   }, []);
+
+  const loadWebhookToken = async (userId: string) => {
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("webhook_token")
+        .eq("user_id", userId)
+        .single();
+      
+      if (profile?.webhook_token) {
+        setWebhookToken(profile.webhook_token);
+      }
+    } catch (error) {
+      console.error("Error loading webhook token:", error);
+    }
+  };
 
   const loadAiReplyStatus = async () => {
     try {
@@ -480,13 +498,15 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-lg bg-muted p-4">
-              <p className="text-sm font-medium mb-2">Webhook Endpoint (User-Specific):</p>
+              <p className="text-sm font-medium mb-2">OneSender Webhook:</p>
               <code className="text-xs bg-background rounded px-3 py-2 block overflow-x-auto break-all">
-                {`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/balasinaja?user_id=${user?.id || 'YOUR_USER_ID'}`}
+                {webhookToken 
+                  ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/balasinaja?token=${webhookToken}`
+                  : "Loading..."}
               </code>
             </div>
             <p className="text-sm text-muted-foreground">
-              Daftarkan URL webhook ini di OneSender dashboard Anda. Setiap user memiliki webhook unik.
+              Gunakan URL ini di dashboard WA Gateway Anda. Sistem akan otomatis memproses pesan dengan token autentikasi yang aman.
             </p>
           </CardContent>
         </Card>
