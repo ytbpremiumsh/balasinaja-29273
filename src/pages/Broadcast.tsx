@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Send, Plus, Trash2, Edit, Users, Radio, Calendar, FileText } from "lucide-react";
+import { Send, Plus, Trash2, Edit, Users, Radio, Calendar, FileText, CheckCircle, XCircle, Clock, Download } from "lucide-react";
 import { TemplateLibrary } from "@/components/broadcast/TemplateLibrary";
 import { CSVUpload } from "@/components/broadcast/CSVUpload";
 import {
@@ -26,6 +26,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 interface Category {
   id: string;
@@ -40,11 +42,11 @@ interface Contact {
   name: string;
 }
 
-interface ContactCategory {
-  id: string;
-  category_id: string;
-  contact_id: string;
-  contacts: Contact;
+interface BroadcastStats {
+  total: number;
+  sent: number;
+  failed: number;
+  pending: number;
 }
 
 export default function Broadcast() {
@@ -61,6 +63,15 @@ export default function Broadcast() {
   const [delayMax, setDelayMax] = useState(3);
   const [usePersonalization, setUsePersonalization] = useState(false);
   
+  // Real-time stats
+  const [currentBroadcastId, setCurrentBroadcastId] = useState<string | null>(null);
+  const [broadcastStats, setBroadcastStats] = useState<BroadcastStats>({
+    total: 0,
+    sent: 0,
+    failed: 0,
+    pending: 0
+  });
+  
   // Category dialog states
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [categoryName, setCategoryName] = useState("");
@@ -75,6 +86,52 @@ export default function Broadcast() {
     loadCategories();
     loadContacts();
   }, []);
+
+  // Real-time subscription for broadcast queue updates
+  useEffect(() => {
+    if (!currentBroadcastId) return;
+
+    const channel = supabase
+      .channel('broadcast-status')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'broadcast_queue',
+          filter: `broadcast_log_id=eq.${currentBroadcastId}`
+        },
+        () => {
+          fetchBroadcastStats(currentBroadcastId);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentBroadcastId]);
+
+  const fetchBroadcastStats = async (broadcastId: string) => {
+    const { data, error } = await supabase
+      .from("broadcast_queue")
+      .select("status")
+      .eq("broadcast_log_id", broadcastId);
+
+    if (error) {
+      console.error("Error fetching stats:", error);
+      return;
+    }
+
+    const stats = {
+      total: data?.length || 0,
+      sent: data?.filter(q => q.status === "sent").length || 0,
+      failed: data?.filter(q => q.status === "failed").length || 0,
+      pending: data?.filter(q => q.status === "pending" || q.status === "processing").length || 0
+    };
+
+    setBroadcastStats(stats);
+  };
 
   const loadCategories = async () => {
     try {
@@ -229,6 +286,10 @@ export default function Broadcast() {
     }
   };
 
+  const insertVariable = (variable: string) => {
+    setMessage(prev => prev + variable);
+  };
+
   const sendBroadcast = async () => {
     if (!selectedCategory) {
       toast({
@@ -279,6 +340,14 @@ export default function Broadcast() {
         return;
       }
 
+      // Reset stats
+      setBroadcastStats({
+        total: recipients.length,
+        sent: 0,
+        failed: 0,
+        pending: recipients.length
+      });
+
       // Call edge function to send broadcast
       const { data, error } = await supabase.functions.invoke("send-broadcast", {
         body: {
@@ -296,12 +365,18 @@ export default function Broadcast() {
 
       if (error) throw error;
 
+      // Set the broadcast ID for real-time updates
+      if (data?.broadcast_id) {
+        setCurrentBroadcastId(data.broadcast_id);
+        fetchBroadcastStats(data.broadcast_id);
+      }
+
       const isScheduled = data?.scheduled;
       toast({
         title: isScheduled ? "Broadcast Dijadwalkan!" : "Broadcast Terkirim!",
         description: isScheduled 
           ? `Pesan dijadwalkan untuk ${recipients.length} kontak`
-          : `Pesan berhasil dikirim ke ${recipients.length} kontak`,
+          : `Terkirim: ${data?.sent || 0}, Gagal: ${data?.failed || 0}`,
       });
 
       setMessage("");
@@ -319,6 +394,10 @@ export default function Broadcast() {
     }
   };
 
+  const progressPercent = broadcastStats.total > 0 
+    ? ((broadcastStats.sent + broadcastStats.failed) / broadcastStats.total) * 100 
+    : 0;
+
   return (
     <Layout>
       <ExpiredUserGuard>
@@ -333,283 +412,373 @@ export default function Broadcast() {
             </p>
           </div>
 
-          {/* Categories Management */}
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Kategori Kontak
-                </span>
-                <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Buat Kategori
+          {/* Real-time Status Cards */}
+          {currentBroadcastId && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card className="bg-muted/30">
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total</p>
+                      <p className="text-2xl font-bold">{broadcastStats.total}</p>
+                    </div>
+                    <Users className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-green-500/10 border-green-500/20">
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-green-600">Terkirim</p>
+                      <p className="text-2xl font-bold text-green-600">{broadcastStats.sent}</p>
+                    </div>
+                    <CheckCircle className="w-8 h-8 text-green-500" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-red-500/10 border-red-500/20">
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-red-600">Gagal</p>
+                      <p className="text-2xl font-bold text-red-600">{broadcastStats.failed}</p>
+                    </div>
+                    <XCircle className="w-8 h-8 text-red-500" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-yellow-500/10 border-yellow-500/20">
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-yellow-600">Pending</p>
+                      <p className="text-2xl font-bold text-yellow-600">{broadcastStats.pending}</p>
+                    </div>
+                    <Clock className="w-8 h-8 text-yellow-500" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Progress Bar */}
+          {currentBroadcastId && broadcastStats.total > 0 && (
+            <Card>
+              <CardContent className="pt-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Progress Pengiriman</span>
+                    <span>{Math.round(progressPercent)}%</span>
+                  </div>
+                  <Progress value={progressPercent} className="h-2" />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Main Layout Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Column - Category & Upload */}
+            <div className="space-y-6">
+              {/* Categories Management */}
+              <Card className="shadow-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center justify-between text-lg">
+                    <span className="flex items-center gap-2">
+                      <Users className="w-5 h-5" />
+                      Kategori
+                    </span>
+                    <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" variant="outline">
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Buat Kategori Baru</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="category-name">Nama Kategori</Label>
+                            <Input
+                              id="category-name"
+                              value={categoryName}
+                              onChange={(e) => setCategoryName(e.target.value)}
+                              placeholder="Contoh: Pelanggan VIP"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="category-desc">Deskripsi (Opsional)</Label>
+                            <Textarea
+                              id="category-desc"
+                              value={categoryDescription}
+                              onChange={(e) => setCategoryDescription(e.target.value)}
+                              placeholder="Deskripsi kategori..."
+                            />
+                          </div>
+                          <Button onClick={createCategory} className="w-full">
+                            Simpan Kategori
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {categories.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-4 text-sm">
+                      Belum ada kategori
+                    </p>
+                  ) : (
+                    <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                      {categories.map((category) => (
+                        <div
+                          key={category.id}
+                          className="flex items-center justify-between p-2 border rounded-lg text-sm"
+                        >
+                          <span className="font-medium truncate">{category.name}</span>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => openManageContactsDialog(category.id)}
+                            >
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive"
+                              onClick={() => deleteCategory(category.id)}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* CSV Upload */}
+              <Card className="shadow-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center justify-between text-lg">
+                    <span className="flex items-center gap-2">
+                      <FileText className="w-5 h-5" />
+                      Upload CSV
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const csvContent = "phone,name\n62812345678,John Doe\n62898765432,Jane Smith";
+                        const blob = new Blob([csvContent], { type: 'text/csv' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'template_kontak.csv';
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                      }}
+                    >
+                      <Download className="w-4 h-4" />
                     </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Buat Kategori Baru</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="category-name">Nama Kategori</Label>
-                        <Input
-                          id="category-name"
-                          value={categoryName}
-                          onChange={(e) => setCategoryName(e.target.value)}
-                          placeholder="Contoh: Pelanggan VIP"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="category-desc">Deskripsi (Opsional)</Label>
-                        <Textarea
-                          id="category-desc"
-                          value={categoryDescription}
-                          onChange={(e) => setCategoryDescription(e.target.value)}
-                          placeholder="Deskripsi kategori..."
-                        />
-                      </div>
-                      <Button onClick={createCategory} className="w-full">
-                        Simpan Kategori
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CSVUpload onContactsUploaded={loadContacts} />
+                </CardContent>
+              </Card>
+
+              {/* Template Library */}
+              <TemplateLibrary
+                onSelectTemplate={(template) => {
+                  setMessage(template.message);
+                  setMediaType(template.media_type);
+                  setMediaUrl(template.media_url || "");
+                }}
+              />
+            </div>
+
+            {/* Right Column - Broadcast Form */}
+            <div className="lg:col-span-2">
+              <Card className="shadow-card gradient-card h-full">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Send className="w-5 h-5" />
+                    Kirim Broadcast
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="category-select">Pilih Kategori</Label>
+                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                        <SelectTrigger id="category-select">
+                          <SelectValue placeholder="Pilih kategori..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="media-type">Tipe Media</Label>
+                      <Select value={mediaType} onValueChange={setMediaType}>
+                        <SelectTrigger id="media-type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="text">Text</SelectItem>
+                          <SelectItem value="image">Image</SelectItem>
+                          <SelectItem value="video">Video</SelectItem>
+                          <SelectItem value="document">Document</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {mediaType !== "text" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="media-url">URL Media</Label>
+                      <Input
+                        id="media-url"
+                        value={mediaUrl}
+                        onChange={(e) => setMediaUrl(e.target.value)}
+                        placeholder="https://example.com/image.jpg"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Pastikan URL dapat diakses publik
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="broadcast-message">Pesan Broadcast</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setUsePersonalization(!usePersonalization)}
+                        className={usePersonalization ? "text-primary" : ""}
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        Personalisasi {usePersonalization ? "✓" : ""}
                       </Button>
                     </div>
-                  </DialogContent>
-                </Dialog>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {categories.length === 0 ? (
-                <p className="text-muted-foreground text-center py-4">
-                  Belum ada kategori. Buat kategori untuk memulai broadcast.
-                </p>
-              ) : (
-                <div className="grid gap-3">
-                  {categories.map((category) => (
-                    <div
-                      key={category.id}
-                      className="flex items-center justify-between p-4 border rounded-lg"
-                    >
-                      <div>
-                        <h3 className="font-semibold">{category.name}</h3>
-                        {category.description && (
-                          <p className="text-sm text-muted-foreground">
-                            {category.description}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openManageContactsDialog(category.id)}
-                        >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Kelola Kontak
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => deleteCategory(category.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                    <Textarea
+                      id="broadcast-message"
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      placeholder="Tulis pesan..."
+                      className="min-h-[120px]"
+                    />
+                    
+                    {/* Variable Buttons */}
+                    <div className="flex flex-wrap gap-2">
+                      <p className="text-xs text-muted-foreground w-full">Klik untuk menambahkan variabel:</p>
+                      <Badge 
+                        variant="secondary" 
+                        className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                        onClick={() => insertVariable("{{nama}}")}
+                      >
+                        {"{{nama}}"}
+                      </Badge>
+                      <Badge 
+                        variant="secondary" 
+                        className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                        onClick={() => insertVariable("{{phone}}")}
+                      >
+                        {"{{phone}}"}
+                      </Badge>
+                      <Badge 
+                        variant="secondary" 
+                        className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                        onClick={() => insertVariable("{{tanggal}}")}
+                      >
+                        {"{{tanggal}}"}
+                      </Badge>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  </div>
 
-          {/* Template Library */}
-          <TemplateLibrary
-            onSelectTemplate={(template) => {
-              setMessage(template.message);
-              setMediaType(template.media_type);
-              setMediaUrl(template.media_url || "");
-            }}
-          />
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="scheduled-at">Jadwal Kirim (Opsional)</Label>
+                      <Input
+                        id="scheduled-at"
+                        type="datetime-local"
+                        value={scheduledAt}
+                        onChange={(e) => setScheduledAt(e.target.value)}
+                      />
+                    </div>
 
-          {/* CSV Upload */}
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Upload Kontak CSV
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const csvContent = "phone,name\n62812345678,John Doe\n62898765432,Jane Smith";
-                    const blob = new Blob([csvContent], { type: 'text/csv' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'template_kontak.csv';
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                  }}
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  Download Template CSV
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CSVUpload onContactsUploaded={loadContacts} />
-            </CardContent>
-          </Card>
+                    <div className="space-y-2">
+                      <Label htmlFor="delay-min">Delay Min (detik)</Label>
+                      <Input
+                        id="delay-min"
+                        type="number"
+                        min="1"
+                        value={delayMin}
+                        onChange={(e) => setDelayMin(parseInt(e.target.value))}
+                      />
+                    </div>
 
-          {/* Broadcast Form */}
-          <Card className="shadow-card gradient-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Send className="w-5 h-5" />
-                Kirim Broadcast
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="category-select">Pilih Kategori</Label>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger id="category-select">
-                      <SelectValue placeholder="Pilih kategori..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="delay-max">Delay Max (detik)</Label>
+                      <Input
+                        id="delay-max"
+                        type="number"
+                        min="1"
+                        value={delayMax}
+                        onChange={(e) => setDelayMax(parseInt(e.target.value))}
+                      />
+                    </div>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="media-type">Tipe Media</Label>
-                  <Select value={mediaType} onValueChange={setMediaType}>
-                    <SelectTrigger id="media-type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="text">Text</SelectItem>
-                      <SelectItem value="image">Image</SelectItem>
-                      <SelectItem value="video">Video</SelectItem>
-                      <SelectItem value="document">Document</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+                  <div className="p-3 bg-muted/50 rounded-lg space-y-2">
+                    <h4 className="font-medium text-sm">Fitur Anti-Block:</h4>
+                    <ul className="text-xs text-muted-foreground space-y-1">
+                      <li>✓ Random delay antara {delayMin}-{delayMax} detik</li>
+                      <li>✓ Auto retry jika gagal kirim</li>
+                      <li>✓ Queue system untuk pengiriman aman</li>
+                    </ul>
+                  </div>
 
-              {mediaType !== "text" && (
-                <div className="space-y-2">
-                  <Label htmlFor="media-url">URL Media</Label>
-                  <Input
-                    id="media-url"
-                    value={mediaUrl}
-                    onChange={(e) => setMediaUrl(e.target.value)}
-                    placeholder="https://example.com/image.jpg"
-                  />
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="broadcast-message">Pesan Broadcast</Label>
                   <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setUsePersonalization(!usePersonalization)}
-                    className={usePersonalization ? "text-primary" : ""}
+                    onClick={sendBroadcast}
+                    disabled={loading}
+                    className="w-full"
+                    size="lg"
                   >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Personalisasi {usePersonalization ? "✓" : ""}
+                    {scheduledAt ? (
+                      <>
+                        <Calendar className="w-4 h-4 mr-2" />
+                        {loading ? "Menjadwalkan..." : "Jadwalkan Broadcast"}
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        {loading ? "Mengirim..." : "Kirim Broadcast"}
+                      </>
+                    )}
                   </Button>
-                </div>
-                <Textarea
-                  id="broadcast-message"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Tulis pesan... Gunakan {{nama}}, {{tanggal}}, {{phone}} untuk personalisasi"
-                  className="min-h-[150px]"
-                />
-                {usePersonalization && (
-                  <p className="text-xs text-muted-foreground">
-                    Variabel tersedia: {'{{nama}}'}, {'{{tanggal}}'}, {'{{phone}}'}
-                  </p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="scheduled-at">Jadwal Kirim (Opsional)</Label>
-                  <Input
-                    id="scheduled-at"
-                    type="datetime-local"
-                    value={scheduledAt}
-                    onChange={(e) => setScheduledAt(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="delay-min">Delay Min (detik)</Label>
-                  <Input
-                    id="delay-min"
-                    type="number"
-                    min="1"
-                    value={delayMin}
-                    onChange={(e) => setDelayMin(parseInt(e.target.value))}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="delay-max">Delay Max (detik)</Label>
-                  <Input
-                    id="delay-max"
-                    type="number"
-                    min="1"
-                    value={delayMax}
-                    onChange={(e) => setDelayMax(parseInt(e.target.value))}
-                  />
-                </div>
-              </div>
-
-              <div className="p-3 bg-muted/50 rounded-lg space-y-2">
-                <h4 className="font-medium text-sm">Fitur Anti-Block:</h4>
-                <ul className="text-xs text-muted-foreground space-y-1">
-                  <li>✓ Random delay antara {delayMin}-{delayMax} detik</li>
-                  <li>✓ Auto retry jika gagal kirim</li>
-                  <li>✓ Queue system untuk pengiriman aman</li>
-                  <li>✓ Hanya kirim ke kontak yang opt-in</li>
-                </ul>
-              </div>
-
-              <Button
-                onClick={sendBroadcast}
-                disabled={loading}
-                className="w-full"
-                size="lg"
-              >
-                {scheduledAt ? (
-                  <>
-                    <Calendar className="w-4 h-4 mr-2" />
-                    {loading ? "Menjadwalkan..." : "Jadwalkan Broadcast"}
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4 mr-2" />
-                    {loading ? "Mengirim..." : "Kirim Broadcast"}
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
 
           {/* Manage Contacts Dialog */}
           <Dialog

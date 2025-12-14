@@ -62,6 +62,7 @@ const handler = async (req: Request): Promise<Response> => {
       categoryId: category_id,
       recipientCount: recipients.length,
       mediaType: media_type,
+      mediaUrl: media_url,
       scheduled: scheduled_at,
     });
 
@@ -113,12 +114,17 @@ const handler = async (req: Request): Promise<Response> => {
     const queueEntries = recipients.map((recipient) => {
       let personalizedMessage = message;
       
-      // Apply personalization if enabled
-      if (use_personalization && recipient.name) {
+      // Apply personalization - always replace variables if present
+      if (use_personalization || message.includes("{{")) {
         personalizedMessage = message
-          .replace(/\{\{nama\}\}/g, recipient.name)
-          .replace(/\{\{tanggal\}\}/g, new Date().toLocaleDateString('id-ID'))
-          .replace(/\{\{phone\}\}/g, recipient.phone);
+          .replace(/\{\{nama\}\}/gi, recipient.name || "")
+          .replace(/\{\{tanggal\}\}/gi, new Date().toLocaleDateString('id-ID', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          }))
+          .replace(/\{\{phone\}\}/gi, recipient.phone);
       }
 
       return {
@@ -179,47 +185,77 @@ const handler = async (req: Request): Promise<Response> => {
           .eq("id", queueItem.id);
 
         // Prepare request body for OneSender API
-        const requestBody: any = {
-          to: recipient.phone,
-          type: media_type,
-          priority: 10
-        };
-
-        // Determine API endpoint based on media type
         let apiEndpoint = apiUrl;
-        
-        // For image broadcasts, use the media endpoint
-        if (media_type === "image") {
-          apiEndpoint = apiUrl.replace("/api/v1/message/send", "/api/v1/media");
-        }
+        let requestBody: any = {};
 
-        // Format message based on type for OneSender
+        // Determine API endpoint and body based on media type
         if (media_type === "text") {
-          requestBody.text = {
-            body: queueItem.message
+          // Text message - use standard message endpoint
+          requestBody = {
+            to: recipient.phone,
+            text: {
+              body: queueItem.message
+            }
           };
-        } else if (media_type === "image") {
-          requestBody.image = {
-            link: media_url,
-            caption: queueItem.message
+        } else if (media_type === "image" && media_url) {
+          // Image message - use media endpoint with correct format
+          // OneSender expects: POST to media endpoint with image data
+          apiEndpoint = apiUrl.replace("/message/send", "/media/send");
+          if (!apiEndpoint.includes("/media")) {
+            apiEndpoint = apiUrl.replace("/api/v1/message/send", "/api/v1/media/send");
+          }
+          
+          requestBody = {
+            to: recipient.phone,
+            type: "image",
+            image: {
+              url: media_url,
+              caption: queueItem.message || ""
+            }
           };
-        } else if (media_type === "video") {
-          requestBody.video = {
-            link: media_url,
-            caption: queueItem.message
+        } else if (media_type === "video" && media_url) {
+          // Video message
+          apiEndpoint = apiUrl.replace("/message/send", "/media/send");
+          if (!apiEndpoint.includes("/media")) {
+            apiEndpoint = apiUrl.replace("/api/v1/message/send", "/api/v1/media/send");
+          }
+          
+          requestBody = {
+            to: recipient.phone,
+            type: "video",
+            video: {
+              url: media_url,
+              caption: queueItem.message || ""
+            }
           };
-        } else if (media_type === "document") {
-          requestBody.document = {
-            link: media_url,
-            caption: queueItem.message,
-            filename: "document.pdf"
+        } else if (media_type === "document" && media_url) {
+          // Document message
+          apiEndpoint = apiUrl.replace("/message/send", "/media/send");
+          if (!apiEndpoint.includes("/media")) {
+            apiEndpoint = apiUrl.replace("/api/v1/message/send", "/api/v1/media/send");
+          }
+          
+          // Extract filename from URL or use default
+          const urlParts = media_url.split('/');
+          const filename = urlParts[urlParts.length - 1] || "document.pdf";
+          
+          requestBody = {
+            to: recipient.phone,
+            type: "document",
+            document: {
+              url: media_url,
+              filename: filename,
+              caption: queueItem.message || ""
+            }
           };
         }
 
         console.log("📤 Sending to OneSender API:", { 
           url: apiEndpoint, 
           phone: recipient.phone,
-          messageType: media_type
+          messageType: media_type,
+          hasMedia: !!media_url,
+          body: JSON.stringify(requestBody).substring(0, 200)
         });
 
         const response = await fetch(apiEndpoint, {
@@ -231,20 +267,47 @@ const handler = async (req: Request): Promise<Response> => {
           body: JSON.stringify(requestBody),
         });
 
+        const responseText = await response.text();
+        console.log(`📨 Response for ${recipient.phone}:`, response.status, responseText.substring(0, 200));
+
         if (response.ok) {
-          successCount++;
-          await supabase
-            .from("broadcast_queue")
-            .update({ 
-              status: "sent", 
-              sent_at: new Date().toISOString() 
-            })
-            .eq("id", queueItem.id);
-          console.log(`✅ Message sent to ${recipient.phone}`);
+          // Check if response indicates success
+          let isSuccess = true;
+          try {
+            const responseJson = JSON.parse(responseText);
+            // Some APIs return success:false in body even with 200 status
+            if (responseJson.success === false || responseJson.error) {
+              isSuccess = false;
+            }
+          } catch {
+            // If response is not JSON, assume success based on status code
+          }
+
+          if (isSuccess) {
+            successCount++;
+            await supabase
+              .from("broadcast_queue")
+              .update({ 
+                status: "sent", 
+                sent_at: new Date().toISOString() 
+              })
+              .eq("id", queueItem.id);
+            console.log(`✅ Message sent to ${recipient.phone}`);
+          } else {
+            failCount++;
+            await supabase
+              .from("broadcast_queue")
+              .update({ 
+                status: "failed",
+                error_message: responseText.substring(0, 500),
+              })
+              .eq("id", queueItem.id);
+            console.error(`❌ API returned error for ${recipient.phone}:`, responseText);
+          }
         } else {
-          const errorText = await response.text();
-          const isWhatsAppError = errorText.includes('not registered') || 
-                                  errorText.includes('not a whatsapp') || 
+          const isWhatsAppError = responseText.includes('not registered') || 
+                                  responseText.includes('not a whatsapp') || 
+                                  responseText.includes('invalid number') ||
                                   response.status === 404 ||
                                   response.status === 400;
           
@@ -255,10 +318,10 @@ const handler = async (req: Request): Promise<Response> => {
               status: "failed",
               error_message: isWhatsAppError 
                 ? 'Nomor tidak terdaftar di WhatsApp' 
-                : errorText,
+                : responseText.substring(0, 500),
             })
             .eq("id", queueItem.id);
-          console.error(`❌ Failed to send to ${recipient.phone}:`, response.status, errorText);
+          console.error(`❌ Failed to send to ${recipient.phone}:`, response.status, responseText);
         }
       } catch (error) {
         failCount++;
@@ -270,7 +333,7 @@ const handler = async (req: Request): Promise<Response> => {
           .from("broadcast_queue")
           .update({ 
             status: "failed",
-            error_message: errorMessage,
+            error_message: errorMessage.substring(0, 500),
           })
           .eq("broadcast_log_id", logId)
           .eq("phone", recipient.phone);
@@ -281,7 +344,7 @@ const handler = async (req: Request): Promise<Response> => {
       await new Promise((resolve) => setTimeout(resolve, delaySeconds * 1000));
     }
 
-    // Update broadcast log
+    // Update broadcast log with final counts
     await supabase
       .from("broadcast_logs")
       .update({
