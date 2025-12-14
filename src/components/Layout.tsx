@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { MessageSquare, Inbox, Bot, Users, Sparkles, Brain, Shield, UserCog, Package, ScrollText, CreditCard, Bell, Radio, BellDot, ChevronDown, Settings2, LayoutDashboard, FileText, Ticket } from "lucide-react";
+import { MessageSquare, Inbox, Bot, Users, Sparkles, Brain, Shield, UserCog, Package, ScrollText, Bell, Radio, BellDot, ChevronDown, Settings2, LayoutDashboard, Ticket } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -33,9 +33,7 @@ const adminNavigation = [
   { name: "Manajemen User", href: "/admin/users", icon: UserCog },
   { name: "Manajemen Paket", href: "/admin/packages", icon: Package },
   { name: "Verifikasi Pembayaran", href: "/admin/payments", icon: Bell },
-  { name: "Pengaturan Pembayaran", href: "/admin/payment-settings", icon: CreditCard },
-  { name: "Notifikasi WhatsApp", href: "/admin/whatsapp-notifications", icon: MessageSquare },
-  { name: "Template WhatsApp", href: "/admin/whatsapp-templates", icon: FileText },
+  { name: "Notifikasi WhatsApp", href: "/admin/whatsapp", icon: MessageSquare },
   { name: "Manajemen Tiket", href: "/admin/tickets", icon: Ticket },
   { name: "Log Aktivitas", href: "/admin/logs", icon: ScrollText },
 ];
@@ -49,7 +47,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const [navigation, setNavigation] = useState(userNavigation);
   const [pendingPayments, setPendingPayments] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const [newUsersCount, setNewUsersCount] = useState(0);
 
   useEffect(() => {
     const checkAdminRole = async () => {
@@ -76,7 +73,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         // Set navigation based on role
         if (hasAdminRole) {
           fetchPendingPayments();
-          fetchNewUsers();
         }
       } catch (error) {
         console.error('Error checking admin role:', error);
@@ -154,33 +150,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       .eq('is_read', false);
     
     setUnreadNotifications(count || 0);
-  };
-
-  const fetchNewUsers = async () => {
-    // Check if user has already viewed the user management page
-    const lastViewed = localStorage.getItem('userManagementLastViewed');
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    const { count, data } = await supabase
-      .from('profiles')
-      .select('created_at', { count: 'exact' })
-      .gte('created_at', yesterday.toISOString());
-    
-    // Only show badge if there are new users since last viewed
-    if (lastViewed && data) {
-      const newSinceViewed = data.filter(
-        (profile) => new Date(profile.created_at || '') > new Date(lastViewed)
-      ).length;
-      setNewUsersCount(newSinceViewed);
-    } else {
-      setNewUsersCount(count || 0);
-    }
-  };
-
-  const markUserManagementViewed = () => {
-    localStorage.setItem('userManagementLastViewed', new Date().toISOString());
-    setNewUsersCount(0);
   };
 
 
@@ -280,23 +249,17 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       {/* Navigation */}
       <nav className="border-b border-border bg-card">
         <div className="container mx-auto px-4">
-          <div className="flex gap-2 overflow-x-auto py-2">
+          <div className="flex gap-2 overflow-x-auto py-2 scrollbar-hide">
             {navigation.map((item: any) => {
               const isActive = location.pathname === item.href;
-              const showUserBadge = item.href === "/admin/users" && newUsersCount > 0;
               const showPaymentBadge = item.href === "/admin/payments" && pendingPayments > 0;
               
               return (
                 <Link
                   key={item.name}
                   to={item.href}
-                  onClick={() => {
-                    if (item.href === "/admin/users") {
-                      markUserManagementViewed();
-                    }
-                  }}
                   className={cn(
-                    "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all whitespace-nowrap relative",
+                    "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all whitespace-nowrap relative flex-shrink-0",
                     isActive
                       ? "bg-primary text-primary-foreground shadow-md"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -304,11 +267,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 >
                   <item.icon className="w-4 h-4" />
                   {item.name}
-                  {showUserBadge && (
-                    <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">
-                      {newUsersCount}
-                    </Badge>
-                  )}
                   {showPaymentBadge && (
                     <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">
                       {pendingPayments}
