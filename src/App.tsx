@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import LandingPage from "./pages/LandingPage";
 import Dashboard from "./pages/Dashboard";
 import Inbox from "./pages/Inbox";
 import Autoreplies from "./pages/Autoreplies";
@@ -25,6 +26,7 @@ import PaymentVerification from "./pages/admin/PaymentVerification";
 import WhatsApp from "./pages/admin/WhatsApp";
 import ActivityLogs from "./pages/admin/ActivityLogs";
 import TicketManagement from "./pages/admin/TicketManagement";
+import LandingPageManagement from "./pages/admin/LandingPageManagement";
 import Tickets from "./pages/Tickets";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
@@ -38,8 +40,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/inbox" element={<ProtectedRoute><Inbox /></ProtectedRoute>} />
           <Route path="/autoreplies" element={<ProtectedRoute><Autoreplies /></ProtectedRoute>} />
           <Route path="/ai-knowledge" element={<ProtectedRoute><AIKnowledge /></ProtectedRoute>} />
@@ -62,6 +65,7 @@ const App = () => (
           <Route path="/admin/whatsapp" element={<ProtectedRoute><AdminRoute><WhatsApp /></AdminRoute></ProtectedRoute>} />
           <Route path="/admin/tickets" element={<ProtectedRoute><AdminRoute><TicketManagement /></AdminRoute></ProtectedRoute>} />
           <Route path="/admin/logs" element={<ProtectedRoute><AdminRoute><ActivityLogs /></AdminRoute></ProtectedRoute>} />
+          <Route path="/admin/landing-page" element={<ProtectedRoute><AdminRoute><LandingPageManagement /></AdminRoute></ProtectedRoute>} />
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
