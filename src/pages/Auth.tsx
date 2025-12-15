@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, User, Phone, Lock } from "lucide-react";
+import { Mail, User, Phone, Lock, ArrowLeft } from "lucide-react";
 import logo from "@/assets/BalasinAja.png";
 
 export default function Auth() {
@@ -142,9 +142,20 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-background p-4">
-      <Card className="w-full max-w-md shadow-elegant">
+      <Card className="w-full max-w-md shadow-elegant relative">
         <CardHeader className="space-y-2 text-center">
-          <div className="mx-auto mb-4">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            asChild 
+            className="absolute left-4 top-4"
+          >
+            <Link to="/" className="flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Kembali
+            </Link>
+          </Button>
+          <div className="mx-auto mb-4 pt-4">
             <img src={logo} alt="BalasinAja" className="h-16 w-auto mx-auto" />
           </div>
           <CardTitle className="text-2xl">
