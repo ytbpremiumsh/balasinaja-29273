@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { MessageSquare, Inbox, Bot, Users, Sparkles, Brain, Shield, UserCog, Package, ScrollText, Bell, Radio, BellDot, ChevronDown, Settings2, LayoutDashboard, Ticket } from "lucide-react";
+import { MessageSquare, Inbox, Bot, Users, Sparkles, Brain, Shield, UserCog, Package, ScrollText, Bell, Radio, BellDot, ChevronDown, Settings2, LayoutDashboard, Ticket, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,7 @@ import { UserAvatar } from "./UserAvatar";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const userNavigation = [
-  { name: "Dashboard", href: "/", icon: Sparkles },
+  { name: "Dashboard", href: "/dashboard", icon: Sparkles },
   { name: "Inbox", href: "/inbox", icon: Inbox },
   { name: "Autoreplies", href: "/autoreplies", icon: MessageSquare },
   { name: "AI Knowledge", href: "/ai-knowledge", icon: Bot },
@@ -35,6 +35,7 @@ const adminNavigation = [
   { name: "Verifikasi Pembayaran", href: "/admin/payments", icon: Bell },
   { name: "Notifikasi WhatsApp", href: "/admin/whatsapp", icon: MessageSquare },
   { name: "Manajemen Tiket", href: "/admin/tickets", icon: Ticket },
+  { name: "Landing Page", href: "/admin/landing-page", icon: FileText },
   { name: "Log Aktivitas", href: "/admin/logs", icon: ScrollText },
 ];
 
@@ -159,7 +160,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            <Link to="/" className="flex items-center gap-2 font-bold text-xl">
+            <Link to="/dashboard" className="flex items-center gap-2 font-bold text-xl">
               <div className="flex items-center justify-center w-10 h-10 rounded-lg gradient-primary">
                 <MessageSquare className="w-6 h-6 text-primary-foreground" />
               </div>
