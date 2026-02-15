@@ -23,3 +23,6 @@ verify_jwt = true
 
 [functions.mayar-webhook]
 verify_jwt = false
+
+[functions.web-chat]
+verify_jwt = false

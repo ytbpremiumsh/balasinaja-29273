@@ -28,6 +28,8 @@ import ActivityLogs from "./pages/admin/ActivityLogs";
 import TicketManagement from "./pages/admin/TicketManagement";
 import LandingPageManagement from "./pages/admin/LandingPageManagement";
 import Tickets from "./pages/Tickets";
+import WebChat from "./pages/WebChat";
+import WebChatEmbed from "./pages/WebChatEmbed";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
 
@@ -56,6 +58,8 @@ const App = () => (
           <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
           <Route path="/payment-success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />
           <Route path="/tickets" element={<ProtectedRoute><Tickets /></ProtectedRoute>} />
+          <Route path="/web-chat" element={<ProtectedRoute><WebChatEmbed /></ProtectedRoute>} />
+          <Route path="/chat/:token" element={<WebChat />} />
           
           {/* Admin Routes */}
           <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />

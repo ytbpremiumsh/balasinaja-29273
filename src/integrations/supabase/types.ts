@@ -754,6 +754,39 @@ export type Database = {
         }
         Relationships: []
       }
+      web_chats: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          message_type: string
+          sender: string
+          session_id: string
+          user_id: string
+          visitor_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          message_type?: string
+          sender?: string
+          session_id: string
+          user_id: string
+          visitor_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          message_type?: string
+          sender?: string
+          session_id?: string
+          user_id?: string
+          visitor_name?: string | null
+        }
+        Relationships: []
+      }
       whatsapp_templates: {
         Row: {
           created_at: string

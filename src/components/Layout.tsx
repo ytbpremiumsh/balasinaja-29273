@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { MessageSquare, Inbox, Bot, Users, Sparkles, Brain, Shield, UserCog, Package, ScrollText, Bell, Radio, BellDot, ChevronDown, Settings2, LayoutDashboard, Ticket, FileText } from "lucide-react";
+import { MessageSquare, Inbox, Bot, Users, Sparkles, Brain, Shield, UserCog, Package, ScrollText, Bell, Radio, BellDot, ChevronDown, Settings2, LayoutDashboard, Ticket, FileText, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,7 @@ const userNavigation = [
 const broadcastNavigation = [
   { name: "Broadcast", href: "/broadcast", icon: Radio },
   { name: "Laporan Broadcast", href: "/broadcast-report", icon: ScrollText },
+  { name: "Web Chat", href: "/web-chat", icon: MessageCircle },
 ];
 
 const adminNavigation = [
