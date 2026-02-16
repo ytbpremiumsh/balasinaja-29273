@@ -28,7 +28,7 @@ serve(async (req) => {
     // Validate token and get user
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('user_id, name')
+      .select('user_id, name, plan, status, expire_at')
       .eq('webhook_token', token)
       .single();
 
@@ -39,9 +39,17 @@ serve(async (req) => {
     }
 
     const userId = profile.user_id;
+    const isPremium = profile.plan && profile.plan !== 'trial' && profile.status !== 'expired';
+
+    const userId = profile.user_id;
 
     // GET CHAT HISTORY
     if (action === 'history') {
+      if (!isPremium) {
+        return new Response(JSON.stringify({ error: 'Premium required' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       const { data: messages } = await supabase
         .from('web_chats')
         .select('id, sender, message, message_type, created_at')
@@ -57,6 +65,11 @@ serve(async (req) => {
 
     // SEND MESSAGE
     if (action === 'send') {
+      if (!isPremium) {
+        return new Response(JSON.stringify({ error: 'Premium required' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       if (!message || !session_id) {
         return new Response(JSON.stringify({ error: 'Message and session_id required' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -105,8 +118,18 @@ serve(async (req) => {
 
     // GET BUSINESS INFO
     if (action === 'info') {
+      // Get bot avatar from settings
+      const { data: avatarSetting } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('user_id', userId)
+        .eq('key', 'chat_bot_avatar')
+        .maybeSingle();
+
       return new Response(JSON.stringify({ 
         business_name: profile.name || 'Business',
+        bot_avatar: avatarSetting?.value || '',
+        is_premium: isPremium,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
