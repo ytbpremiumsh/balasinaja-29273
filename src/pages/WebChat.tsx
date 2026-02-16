@@ -11,6 +11,11 @@ interface ChatMessage {
   created_at: string;
 }
 
+interface VisitorInfo {
+  name: string;
+  phone: string;
+}
+
 export default function WebChat() {
   const { token } = useParams<{ token: string }>();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -19,6 +24,12 @@ export default function WebChat() {
   const [businessName, setBusinessName] = useState("Chat Support");
   const [botAvatar, setBotAvatar] = useState("");
   const [isPremium, setIsPremium] = useState<boolean | null>(null);
+  const [visitorInfo, setVisitorInfo] = useState<VisitorInfo | null>(() => {
+    const stored = sessionStorage.getItem(`webchat_visitor_${token}`);
+    return stored ? JSON.parse(stored) : null;
+  });
+  const [formName, setFormName] = useState("");
+  const [formPhone, setFormPhone] = useState("");
   const [sessionId] = useState(() => {
     const stored = sessionStorage.getItem(`webchat_session_${token}`);
     if (stored) return stored;
@@ -27,6 +38,7 @@ export default function WebChat() {
     return id;
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -34,12 +46,19 @@ export default function WebChat() {
   }, [token]);
 
   useEffect(() => {
-    if (isPremium === true) fetchHistory();
-  }, [isPremium]);
+    if (isPremium === true && visitorInfo) fetchHistory();
+  }, [isPremium, visitorInfo]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Poll for new messages (for manual replies from dashboard)
+  useEffect(() => {
+    if (!isPremium || !visitorInfo) return;
+    pollRef.current = setInterval(() => fetchHistory(), 5000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [isPremium, visitorInfo]);
 
   const callApi = async (body: any) => {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/web-chat`, {
@@ -68,8 +87,17 @@ export default function WebChat() {
     } catch {}
   };
 
+  const handleStartChat = () => {
+    if (!formName.trim() || !formPhone.trim()) return;
+    const phone = formPhone.trim().replace(/[^0-9+]/g, "");
+    if (phone.length < 8) return;
+    const info = { name: formName.trim(), phone };
+    setVisitorInfo(info);
+    sessionStorage.setItem(`webchat_visitor_${token}`, JSON.stringify(info));
+  };
+
   const sendMessage = async () => {
-    if (!input.trim() || sending) return;
+    if (!input.trim() || sending || !visitorInfo) return;
     const text = input.trim();
     setInput("");
     setSending(true);
@@ -83,7 +111,13 @@ export default function WebChat() {
     setMessages((prev) => [...prev, tempMsg]);
 
     try {
-      const data = await callApi({ action: "send", session_id: sessionId, message: text });
+      const data = await callApi({
+        action: "send",
+        session_id: sessionId,
+        message: text,
+        visitor_name: visitorInfo.name,
+        visitor_phone: visitorInfo.phone,
+      });
       if (data.reply) {
         const aiMsg: ChatMessage = {
           id: `ai-${Date.now()}`,
@@ -117,7 +151,6 @@ export default function WebChat() {
     );
   };
 
-  // Not premium
   if (isPremium === false) {
     return (
       <div className="flex flex-col h-screen items-center justify-center bg-slate-50 p-6 text-center">
@@ -128,11 +161,77 @@ export default function WebChat() {
     );
   }
 
-  // Loading
   if (isPremium === null) {
     return (
       <div className="flex flex-col h-screen items-center justify-center bg-slate-50">
         <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
+  // Visitor registration form
+  if (!visitorInfo) {
+    return (
+      <div className="flex flex-col h-screen bg-gradient-to-b from-slate-50 to-white">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 flex items-center gap-3 shadow-md">
+          {botAvatar ? (
+            <img src={botAvatar} alt="Bot" className="w-10 h-10 rounded-full object-cover border-2 border-white/30" />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+              <Bot className="w-5 h-5" />
+            </div>
+          )}
+          <div>
+            <h1 className="font-semibold text-sm">{businessName}</h1>
+            <p className="text-xs text-blue-100">Online • Powered by BalasinAja</p>
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg p-6 border border-slate-100">
+            <div className="text-center mb-6">
+              {botAvatar ? (
+                <img src={botAvatar} alt="Bot" className="w-16 h-16 mx-auto mb-3 rounded-full object-cover" />
+              ) : (
+                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Bot className="w-8 h-8 text-blue-500" />
+                </div>
+              )}
+              <h2 className="font-semibold text-slate-800">Selamat Datang! 👋</h2>
+              <p className="text-sm text-slate-500 mt-1">Silakan isi data Anda untuk memulai percakapan</p>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-slate-600 mb-1 block">Nama Lengkap *</label>
+                <input
+                  type="text"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  placeholder="Masukkan nama Anda"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onKeyDown={(e) => e.key === "Enter" && handleStartChat()}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 mb-1 block">Nomor HP / WhatsApp *</label>
+                <input
+                  type="tel"
+                  value={formPhone}
+                  onChange={(e) => setFormPhone(e.target.value)}
+                  placeholder="08xxxxxxxxxx"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onKeyDown={(e) => e.key === "Enter" && handleStartChat()}
+                />
+              </div>
+              <button
+                onClick={handleStartChat}
+                disabled={!formName.trim() || !formPhone.trim()}
+                className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-medium text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Mulai Chat
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -163,7 +262,7 @@ export default function WebChat() {
             ) : (
               <Bot className="w-12 h-12 mx-auto mb-3 text-blue-300" />
             )}
-            <p className="font-medium text-slate-500">Halo! 👋</p>
+            <p className="font-medium text-slate-500">Halo, {visitorInfo.name}! 👋</p>
             <p>Silakan kirim pesan untuk memulai percakapan</p>
           </div>
         )}
@@ -182,8 +281,13 @@ export default function WebChat() {
               <div className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
                 msg.sender === "visitor"
                   ? "bg-blue-600 text-white rounded-br-md"
-                  : "bg-white text-slate-800 rounded-bl-md shadow-sm border border-slate-100"
+                  : msg.sender === "admin"
+                    ? "bg-emerald-50 text-slate-800 rounded-bl-md shadow-sm border border-emerald-200"
+                    : "bg-white text-slate-800 rounded-bl-md shadow-sm border border-slate-100"
               }`}>
+                {msg.sender === "admin" && (
+                  <p className="text-[10px] font-semibold text-emerald-600 mb-0.5">Admin</p>
+                )}
                 <p className="whitespace-pre-wrap">{msg.message}</p>
                 <p className={`text-[10px] mt-1 ${
                   msg.sender === "visitor" ? "text-blue-200" : "text-slate-400"
