@@ -17,6 +17,8 @@ export default function WebChat() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [businessName, setBusinessName] = useState("Chat Support");
+  const [botAvatar, setBotAvatar] = useState("");
+  const [isPremium, setIsPremium] = useState<boolean | null>(null);
   const [sessionId] = useState(() => {
     const stored = sessionStorage.getItem(`webchat_session_${token}`);
     if (stored) return stored;
@@ -29,8 +31,11 @@ export default function WebChat() {
   useEffect(() => {
     if (!token) return;
     fetchInfo();
-    fetchHistory();
   }, [token]);
+
+  useEffect(() => {
+    if (isPremium === true) fetchHistory();
+  }, [isPremium]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -49,7 +54,11 @@ export default function WebChat() {
     try {
       const data = await callApi({ action: "info" });
       if (data.business_name) setBusinessName(data.business_name);
-    } catch {}
+      if (data.bot_avatar) setBotAvatar(data.bot_avatar);
+      setIsPremium(data.is_premium !== false);
+    } catch {
+      setIsPremium(false);
+    }
   };
 
   const fetchHistory = async () => {
@@ -65,7 +74,6 @@ export default function WebChat() {
     setInput("");
     setSending(true);
 
-    // Optimistic add
     const tempMsg: ChatMessage = {
       id: `temp-${Date.now()}`,
       sender: "visitor",
@@ -85,9 +93,7 @@ export default function WebChat() {
         };
         setMessages((prev) => [...prev, aiMsg]);
       }
-    } catch {
-      // Keep the visitor message even on error
-    } finally {
+    } catch {} finally {
       setSending(false);
     }
   };
@@ -99,13 +105,49 @@ export default function WebChat() {
     }
   };
 
+  const BotAvatarEl = ({ size = "w-6 h-6" }: { size?: string }) => {
+    if (botAvatar) {
+      return <img src={botAvatar} alt="Bot" className={`${size} rounded-full object-cover`} />;
+    }
+    const iconSize = size === "w-10 h-10" ? "w-5 h-5" : "w-3 h-3";
+    return (
+      <div className={`${size} rounded-full bg-slate-200 flex items-center justify-center`}>
+        <Bot className={`${iconSize} text-slate-600`} />
+      </div>
+    );
+  };
+
+  // Not premium
+  if (isPremium === false) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center bg-slate-50 p-6 text-center">
+        <Bot className="w-16 h-16 text-slate-300 mb-4" />
+        <h2 className="text-lg font-semibold text-slate-700">Chat Tidak Tersedia</h2>
+        <p className="text-sm text-slate-500 mt-2">Fitur web chat ini belum diaktifkan oleh pemilik.</p>
+      </div>
+    );
+  }
+
+  // Loading
+  if (isPremium === null) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center bg-slate-50">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-gradient-to-b from-slate-50 to-white">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 flex items-center gap-3 shadow-md">
-        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-          <Bot className="w-5 h-5" />
-        </div>
+        {botAvatar ? (
+          <img src={botAvatar} alt="Bot" className="w-10 h-10 rounded-full object-cover border-2 border-white/30" />
+        ) : (
+          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+            <Bot className="w-5 h-5" />
+          </div>
+        )}
         <div>
           <h1 className="font-semibold text-sm">{businessName}</h1>
           <p className="text-xs text-blue-100">Online • Powered by BalasinAja</p>
@@ -116,7 +158,11 @@ export default function WebChat() {
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.length === 0 && (
           <div className="text-center py-12 text-slate-400 text-sm">
-            <Bot className="w-12 h-12 mx-auto mb-3 text-blue-300" />
+            {botAvatar ? (
+              <img src={botAvatar} alt="Bot" className="w-12 h-12 mx-auto mb-3 rounded-full object-cover" />
+            ) : (
+              <Bot className="w-12 h-12 mx-auto mb-3 text-blue-300" />
+            )}
             <p className="font-medium text-slate-500">Halo! 👋</p>
             <p>Silakan kirim pesan untuk memulai percakapan</p>
           </div>
@@ -124,15 +170,15 @@ export default function WebChat() {
         {messages.map((msg) => (
           <div key={msg.id} className={`flex ${msg.sender === "visitor" ? "justify-end" : "justify-start"}`}>
             <div className={`flex items-end gap-2 max-w-[80%] ${msg.sender === "visitor" ? "flex-row-reverse" : ""}`}>
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-                msg.sender === "visitor" ? "bg-blue-600" : "bg-slate-200"
-              }`}>
-                {msg.sender === "visitor" ? (
+              {msg.sender === "visitor" ? (
+                <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
                   <User className="w-3 h-3 text-white" />
-                ) : (
-                  <Bot className="w-3 h-3 text-slate-600" />
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="flex-shrink-0">
+                  <BotAvatarEl />
+                </div>
+              )}
               <div className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
                 msg.sender === "visitor"
                   ? "bg-blue-600 text-white rounded-br-md"
@@ -151,9 +197,7 @@ export default function WebChat() {
         {sending && (
           <div className="flex justify-start">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center">
-                <Bot className="w-3 h-3 text-slate-600" />
-              </div>
+              <BotAvatarEl />
               <div className="bg-white border border-slate-100 shadow-sm px-4 py-2 rounded-2xl rounded-bl-md">
                 <div className="flex gap-1">
                   <span className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
