@@ -27,6 +27,7 @@ const broadcastNavigation = [
   { name: "Broadcast", href: "/broadcast", icon: Radio },
   { name: "Laporan Broadcast", href: "/broadcast-report", icon: ScrollText },
   { name: "Web Chat", href: "/web-chat", icon: MessageCircle },
+  { name: "Chat Dashboard", href: "/web-chat/dashboard", icon: Inbox },
 ];
 
 const adminNavigation = [

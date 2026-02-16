@@ -17,7 +17,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action, token, session_id, message, visitor_name } = await req.json();
+    const { action, token, session_id, message, visitor_name, visitor_phone } = await req.json();
 
     if (!token) {
       return new Response(JSON.stringify({ error: 'Token is required' }), {
@@ -40,8 +40,6 @@ serve(async (req) => {
 
     const userId = profile.user_id;
     const isPremium = profile.plan && profile.plan !== 'trial' && profile.status !== 'expired';
-
-    const userId = profile.user_id;
 
     // GET CHAT HISTORY
     if (action === 'history') {
@@ -83,6 +81,7 @@ serve(async (req) => {
         sender: 'visitor',
         message,
         visitor_name: visitor_name || null,
+        visitor_phone: visitor_phone || null,
       });
 
       // Get conversation history for AI context
