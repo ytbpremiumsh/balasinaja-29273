@@ -18,9 +18,12 @@ const userNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: Sparkles },
   { name: "Inbox", href: "/inbox", icon: Inbox },
   { name: "Autoreplies", href: "/autoreplies", icon: MessageSquare },
+  { name: "Contacts", href: "/contacts", icon: Users },
+];
+
+const aiNavigation = [
   { name: "AI Knowledge", href: "/ai-knowledge", icon: Bot },
   { name: "AI Behavior", href: "/ai-behavior", icon: Brain },
-  { name: "Contacts", href: "/contacts", icon: Users },
 ];
 
 const broadcastNavigation = [
@@ -252,7 +255,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       {/* Navigation */}
       <nav className="border-b border-border bg-card">
         <div className="container mx-auto px-4">
-          <div className="flex gap-2 overflow-x-auto py-2 scrollbar-hide">
+          <div className="flex gap-2 overflow-x-auto py-2 scrollbar-hide items-center">
             {navigation.map((item: any) => {
               const isActive = location.pathname === item.href;
               const showPaymentBadge = item.href === "/admin/payments" && pendingPayments > 0;
@@ -278,6 +281,33 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 </Link>
               );
             })}
+            {/* AI Dropdown - only show for non-admin mode */}
+            {(!isAdmin || adminMode === 'user') && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={cn(
+                    "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all whitespace-nowrap flex-shrink-0",
+                    aiNavigation.some(ai => location.pathname === ai.href)
+                      ? "bg-primary text-primary-foreground shadow-md"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}>
+                    <Bot className="w-4 h-4" />
+                    AI
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="bg-popover">
+                  {aiNavigation.map((item) => (
+                    <DropdownMenuItem key={item.name} onClick={() => navigate(item.href)} className={cn(
+                      location.pathname === item.href && "bg-muted"
+                    )}>
+                      <item.icon className="w-4 h-4 mr-2" />
+                      {item.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
       </nav>

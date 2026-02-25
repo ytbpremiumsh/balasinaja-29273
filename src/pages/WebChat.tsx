@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { Send, Bot, User, Loader2 } from "lucide-react";
+import { Send, Bot, User, Loader2, Image } from "lucide-react";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -8,6 +8,7 @@ interface ChatMessage {
   id: string;
   sender: string;
   message: string;
+  message_type?: string;
   created_at: string;
 }
 
@@ -37,8 +38,10 @@ export default function WebChat() {
     sessionStorage.setItem(`webchat_session_${token}`, id);
     return id;
   });
+  const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -53,7 +56,6 @@ export default function WebChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Poll for new messages (for manual replies from dashboard)
   useEffect(() => {
     if (!isPremium || !visitorInfo) return;
     pollRef.current = setInterval(() => fetchHistory(), 5000);
@@ -96,16 +98,17 @@ export default function WebChat() {
     sessionStorage.setItem(`webchat_visitor_${token}`, JSON.stringify(info));
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || sending || !visitorInfo) return;
-    const text = input.trim();
-    setInput("");
+  const sendMessage = async (messageText?: string, messageType: string = 'text') => {
+    const text = messageText || input.trim();
+    if (!text || sending || !visitorInfo) return;
+    if (!messageText) setInput("");
     setSending(true);
 
     const tempMsg: ChatMessage = {
       id: `temp-${Date.now()}`,
       sender: "visitor",
       message: text,
+      message_type: messageType,
       created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, tempMsg]);
@@ -115,6 +118,7 @@ export default function WebChat() {
         action: "send",
         session_id: sessionId,
         message: text,
+        message_type: messageType,
         visitor_name: visitorInfo.name,
         visitor_phone: visitorInfo.phone,
       });
@@ -123,12 +127,47 @@ export default function WebChat() {
           id: `ai-${Date.now()}`,
           sender: "ai",
           message: data.reply,
+          message_type: 'text',
           created_at: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, aiMsg]);
       }
     } catch {} finally {
       setSending(false);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+
+    setUploading(true);
+    try {
+      // Upload via edge function
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // Upload directly using fetch to supabase storage
+      const ext = file.name.split('.').pop();
+      const filePath = `visitors/${sessionId}/${Date.now()}.${ext}`;
+      
+      const res = await fetch(`${SUPABASE_URL}/storage/v1/object/web-chat-attachments/${filePath}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: file,
+      });
+
+      if (!res.ok) throw new Error('Upload failed');
+
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/web-chat-attachments/${filePath}`;
+      await sendMessage(publicUrl, 'image');
+    } catch (err) {
+      console.error('Upload error:', err);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -149,6 +188,17 @@ export default function WebChat() {
         <Bot className={`${iconSize} text-slate-600`} />
       </div>
     );
+  };
+
+  const renderMessageContent = (msg: ChatMessage) => {
+    if (msg.message_type === 'image') {
+      return (
+        <a href={msg.message} target="_blank" rel="noopener noreferrer">
+          <img src={msg.message} alt="Attachment" className="max-w-[200px] rounded-lg cursor-pointer hover:opacity-90" />
+        </a>
+      );
+    }
+    return <p className="whitespace-pre-wrap">{msg.message}</p>;
   };
 
   if (isPremium === false) {
@@ -202,31 +252,13 @@ export default function WebChat() {
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-medium text-slate-600 mb-1 block">Nama Lengkap *</label>
-                <input
-                  type="text"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  placeholder="Masukkan nama Anda"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  onKeyDown={(e) => e.key === "Enter" && handleStartChat()}
-                />
+                <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Masukkan nama Anda" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" onKeyDown={(e) => e.key === "Enter" && handleStartChat()} />
               </div>
               <div>
                 <label className="text-xs font-medium text-slate-600 mb-1 block">Nomor HP / WhatsApp *</label>
-                <input
-                  type="tel"
-                  value={formPhone}
-                  onChange={(e) => setFormPhone(e.target.value)}
-                  placeholder="08xxxxxxxxxx"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  onKeyDown={(e) => e.key === "Enter" && handleStartChat()}
-                />
+                <input type="tel" value={formPhone} onChange={(e) => setFormPhone(e.target.value)} placeholder="08xxxxxxxxxx" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" onKeyDown={(e) => e.key === "Enter" && handleStartChat()} />
               </div>
-              <button
-                onClick={handleStartChat}
-                disabled={!formName.trim() || !formPhone.trim()}
-                className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-medium text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
+              <button onClick={handleStartChat} disabled={!formName.trim() || !formPhone.trim()} className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-medium text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                 Mulai Chat
               </button>
             </div>
@@ -274,9 +306,7 @@ export default function WebChat() {
                   <User className="w-3 h-3 text-white" />
                 </div>
               ) : (
-                <div className="flex-shrink-0">
-                  <BotAvatarEl />
-                </div>
+                <div className="flex-shrink-0"><BotAvatarEl /></div>
               )}
               <div className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
                 msg.sender === "visitor"
@@ -288,17 +318,15 @@ export default function WebChat() {
                 {msg.sender === "admin" && (
                   <p className="text-[10px] font-semibold text-emerald-600 mb-0.5">Admin</p>
                 )}
-                <p className="whitespace-pre-wrap">{msg.message}</p>
-                <p className={`text-[10px] mt-1 ${
-                  msg.sender === "visitor" ? "text-blue-200" : "text-slate-400"
-                }`}>
+                {renderMessageContent(msg)}
+                <p className={`text-[10px] mt-1 ${msg.sender === "visitor" ? "text-blue-200" : "text-slate-400"}`}>
                   {new Date(msg.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
                 </p>
               </div>
             </div>
           </div>
         ))}
-        {sending && (
+        {(sending || uploading) && (
           <div className="flex justify-start">
             <div className="flex items-center gap-2">
               <BotAvatarEl />
@@ -318,6 +346,14 @@ export default function WebChat() {
       {/* Input */}
       <div className="border-t border-slate-200 bg-white px-3 py-3">
         <div className="flex items-end gap-2">
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-slate-200 disabled:opacity-50 transition-colors flex-shrink-0"
+          >
+            {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
+          </button>
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -328,7 +364,7 @@ export default function WebChat() {
             style={{ maxHeight: 100 }}
           />
           <button
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             disabled={!input.trim() || sending}
             className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
           >
