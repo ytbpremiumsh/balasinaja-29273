@@ -17,7 +17,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action, token, session_id, message, visitor_name, visitor_phone } = await req.json();
+    const { action, token, session_id, message, message_type, visitor_name, visitor_phone } = await req.json();
 
     if (!token) {
       return new Response(JSON.stringify({ error: 'Token is required' }), {
@@ -74,15 +74,22 @@ serve(async (req) => {
         });
       }
 
-      // Save visitor message
       await supabase.from('web_chats').insert({
         user_id: userId,
         session_id,
         sender: 'visitor',
         message,
+        message_type: message_type || 'text',
         visitor_name: visitor_name || null,
         visitor_phone: visitor_phone || null,
       });
+
+      // If it's an image, don't generate AI reply
+      if (message_type === 'image') {
+        return new Response(JSON.stringify({ reply: null, status: 'image_received' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
       // Get conversation history for AI context
       const { data: chatHistory } = await supabase
