@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { MessageCircle, Send, User, Bot, ArrowLeft, Phone, Loader2, Image, Trash2 } from "lucide-react";
+import { MessageCircle, Send, User, Bot, ArrowLeft, Phone, Loader2, Image, Trash2, Zap, ChevronDown, ChevronUp, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 
 interface ChatContact {
@@ -28,6 +28,12 @@ interface ChatMessage {
   session_id: string;
 }
 
+interface KnowledgeItem {
+  id: string;
+  question: string;
+  answer: string;
+}
+
 export default function WebChatDashboard() {
   const [contacts, setContacts] = useState<ChatContact[]>([]);
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
@@ -41,11 +47,15 @@ export default function WebChatDashboard() {
       return JSON.parse(localStorage.getItem('webchat_read_ts') || '{}');
     } catch { return {}; }
   });
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItem[]>([]);
+  const [knowledgeSearch, setKnowledgeSearch] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchContacts();
+    fetchKnowledge();
     
     const channel = supabase
       .channel('web_chats_realtime')
@@ -62,6 +72,14 @@ export default function WebChatDashboard() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const fetchKnowledge = async () => {
+    const { data } = await supabase
+      .from('ai_knowledge_base')
+      .select('id, question, answer')
+      .order('created_at', { ascending: false });
+    setKnowledgeItems(data || []);
+  };
+
   const fetchContacts = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -75,7 +93,6 @@ export default function WebChatDashboard() {
 
       if (error) throw error;
 
-      // Group by visitor_phone
       const phoneMap = new Map<string, ChatContact>();
       data?.forEach((msg) => {
         const phone = msg.visitor_phone || 'unknown';
@@ -96,19 +113,15 @@ export default function WebChatDashboard() {
         }
       });
 
-      // Mark unread based on readTimestamps
       const contactList = Array.from(phoneMap.values());
       contactList.forEach((c) => {
         const lastRead = readTimestamps[c.visitor_phone];
         if (!lastRead || new Date(c.last_time) > new Date(lastRead)) {
-          // Only unread if last message is from visitor or ai (not admin)
           if (c.last_sender !== 'admin') c.unread = true;
         }
       });
 
-      // Sort by latest message time (newest first)
       contactList.sort((a, b) => new Date(b.last_time).getTime() - new Date(a.last_time).getTime());
-
       setContacts(contactList);
     } catch (err) {
       console.error("Error fetching contacts:", err);
@@ -134,7 +147,6 @@ export default function WebChatDashboard() {
   const openContact = (phone: string) => {
     setSelectedPhone(phone);
     fetchMessages(phone);
-    // Mark as read
     const updated = { ...readTimestamps, [phone]: new Date().toISOString() };
     setReadTimestamps(updated);
     localStorage.setItem('webchat_read_ts', JSON.stringify(updated));
@@ -167,6 +179,7 @@ export default function WebChatDashboard() {
 
       if (error) throw error;
       if (!messageText) setReplyText("");
+      setShowQuickReplies(false);
       fetchMessages(selectedPhone);
     } catch (err: any) {
       toast.error("Gagal mengirim balasan: " + err.message);
@@ -210,6 +223,21 @@ export default function WebChatDashboard() {
     }
   };
 
+  const useQuickReply = (answer: string) => {
+    setReplyText(answer);
+    setShowQuickReplies(false);
+  };
+
+  const sendQuickReply = (answer: string) => {
+    sendReply(answer);
+  };
+
+  const filteredKnowledge = knowledgeItems.filter((k) => {
+    if (!knowledgeSearch.trim()) return true;
+    const s = knowledgeSearch.toLowerCase();
+    return k.question.toLowerCase().includes(s) || k.answer.toLowerCase().includes(s);
+  });
+
   const selectedContactInfo = contacts.find(c => c.visitor_phone === selectedPhone);
 
   const renderMessage = (msg: ChatMessage) => {
@@ -239,7 +267,7 @@ export default function WebChatDashboard() {
               <p className="text-[10px] font-semibold opacity-75 mb-0.5">Anda (Admin)</p>
             )}
             {msg.sender === "ai" && (
-              <p className="text-[10px] font-semibold opacity-75 mb-0.5">AI Bot</p>
+              <p className="text-[10px] font-semibold opacity-75 mb-0.5">🤖 AI Bot</p>
             )}
             {isImage ? (
               <a href={msg.message} target="_blank" rel="noopener noreferrer">
@@ -347,6 +375,52 @@ export default function WebChatDashboard() {
                   <div ref={messagesEndRef} />
                 </div>
 
+                {/* Quick Replies from Knowledge Base */}
+                {showQuickReplies && (
+                  <div className="border-t border-border bg-muted/30 max-h-[200px] overflow-y-auto">
+                    <div className="px-4 py-2 sticky top-0 bg-muted/50 backdrop-blur-sm">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="w-4 h-4 text-primary" />
+                        <span className="text-xs font-semibold text-primary">Balasan Pintas dari Knowledge Base</span>
+                      </div>
+                      <Input
+                        value={knowledgeSearch}
+                        onChange={(e) => setKnowledgeSearch(e.target.value)}
+                        placeholder="Cari knowledge..."
+                        className="mt-2 h-8 text-xs"
+                      />
+                    </div>
+                    {filteredKnowledge.length === 0 ? (
+                      <div className="px-4 py-3 text-xs text-muted-foreground text-center">
+                        {knowledgeItems.length === 0 ? "Belum ada data Knowledge Base" : "Tidak ditemukan"}
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-border">
+                        {filteredKnowledge.map((k) => (
+                          <div key={k.id} className="px-4 py-2 hover:bg-muted/50 transition-colors">
+                            <p className="text-xs font-medium text-foreground truncate">Q: {k.question}</p>
+                            <p className="text-xs text-muted-foreground truncate mt-0.5">A: {k.answer}</p>
+                            <div className="flex gap-2 mt-1.5">
+                              <button
+                                onClick={() => useQuickReply(k.answer)}
+                                className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                              >
+                                Gunakan
+                              </button>
+                              <button
+                                onClick={() => sendQuickReply(k.answer)}
+                                className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                              >
+                                Kirim Langsung
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="border-t border-border px-4 py-3">
                   <div className="flex gap-2">
                     <input
@@ -364,6 +438,15 @@ export default function WebChatDashboard() {
                       className="flex-shrink-0"
                     >
                       {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
+                    </Button>
+                    <Button
+                      variant={showQuickReplies ? "default" : "ghost"}
+                      size="icon"
+                      onClick={() => setShowQuickReplies(!showQuickReplies)}
+                      className="flex-shrink-0"
+                      title="Balasan Pintas"
+                    >
+                      <Zap className="w-4 h-4" />
                     </Button>
                     <Input
                       value={replyText}
