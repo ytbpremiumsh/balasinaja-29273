@@ -357,7 +357,7 @@ export default function WebChat() {
                   <p className="text-[10px] font-semibold text-emerald-600 mb-0.5">Admin</p>
                 )}
                 {msg.sender === "ai" && (
-                  <p className="text-[10px] font-semibold text-slate-400 mb-0.5">🤖 Bot</p>
+                  <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Admin Ayo Pintar</p>
                 )}
                 {renderMessageContent(msg)}
                 <p className={`text-[10px] mt-1 ${msg.sender === "visitor" ? "text-blue-200" : "text-slate-400"}`}>
