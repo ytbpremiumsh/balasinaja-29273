@@ -12,8 +12,10 @@ interface ChatContact {
   visitor_phone: string;
   visitor_name: string | null;
   last_message: string;
+  last_sender: string;
   last_time: string;
   session_ids: string[];
+  unread: boolean;
 }
 
 interface ChatMessage {
@@ -34,6 +36,11 @@ export default function WebChatDashboard() {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [readTimestamps, setReadTimestamps] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('webchat_read_ts') || '{}');
+    } catch { return {}; }
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -77,8 +84,10 @@ export default function WebChatDashboard() {
             visitor_phone: phone,
             visitor_name: msg.visitor_name,
             last_message: msg.message,
+            last_sender: msg.sender,
             last_time: msg.created_at,
             session_ids: [msg.session_id],
+            unread: false,
           });
         } else {
           const c = phoneMap.get(phone)!;
@@ -87,7 +96,20 @@ export default function WebChatDashboard() {
         }
       });
 
-      setContacts(Array.from(phoneMap.values()));
+      // Mark unread based on readTimestamps
+      const contactList = Array.from(phoneMap.values());
+      contactList.forEach((c) => {
+        const lastRead = readTimestamps[c.visitor_phone];
+        if (!lastRead || new Date(c.last_time) > new Date(lastRead)) {
+          // Only unread if last message is from visitor or ai (not admin)
+          if (c.last_sender !== 'admin') c.unread = true;
+        }
+      });
+
+      // Sort by latest message time (newest first)
+      contactList.sort((a, b) => new Date(b.last_time).getTime() - new Date(a.last_time).getTime());
+
+      setContacts(contactList);
     } catch (err) {
       console.error("Error fetching contacts:", err);
     } finally {
@@ -112,6 +134,11 @@ export default function WebChatDashboard() {
   const openContact = (phone: string) => {
     setSelectedPhone(phone);
     fetchMessages(phone);
+    // Mark as read
+    const updated = { ...readTimestamps, [phone]: new Date().toISOString() };
+    setReadTimestamps(updated);
+    localStorage.setItem('webchat_read_ts', JSON.stringify(updated));
+    setContacts(prev => prev.map(c => c.visitor_phone === phone ? { ...c, unread: false } : c));
   };
 
   const getLatestSessionId = (): string | null => {
@@ -265,19 +292,27 @@ export default function WebChatDashboard() {
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <div className="relative w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                           <User className="w-4 h-4 text-primary" />
+                          {c.unread && (
+                            <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-destructive rounded-full border-2 border-background" />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">
-                            {c.visitor_name || "Visitor"}
-                          </p>
+                          <div className="flex items-center justify-between">
+                            <p className={`text-sm truncate ${c.unread ? "font-bold" : "font-medium"}`}>
+                              {c.visitor_name || "Visitor"}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground flex-shrink-0 ml-2">
+                              {new Date(c.last_time).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          </div>
                           <p className="text-xs text-muted-foreground flex items-center gap-1">
                             <Phone className="w-3 h-3" /> {c.visitor_phone}
                           </p>
-                          <p className="text-xs text-muted-foreground truncate mt-0.5">{c.last_message}</p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">
-                            {new Date(c.last_time).toLocaleString("id-ID")}
+                          <p className={`text-xs truncate mt-0.5 ${c.unread ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
+                            {c.last_sender === 'admin' ? '✓ Anda: ' : c.last_sender === 'ai' ? '🤖 Bot: ' : ''}
+                            {c.last_message}
                           </p>
                         </div>
                       </div>
