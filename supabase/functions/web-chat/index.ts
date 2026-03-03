@@ -181,8 +181,7 @@ async function generateAiReply(
     const { data: knowledge } = await supabase
       .from('ai_knowledge_base')
       .select('question, answer')
-      .eq('user_id', userId)
-      .limit(10);
+      .eq('user_id', userId);
 
     let context = '';
     if (knowledge?.length > 0) {
