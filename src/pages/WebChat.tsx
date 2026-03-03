@@ -190,6 +190,33 @@ export default function WebChat() {
     );
   };
 
+  const formatText = (text: string) => {
+    const parts: React.ReactNode[] = [];
+    // Match **bold** or URLs
+    const regex = /(\*\*(.+?)\*\*)|(https?:\/\/[^\s<]+)/g;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(text.slice(lastIndex, match.index));
+      }
+      if (match[1]) {
+        parts.push(<strong key={match.index}>{match[2]}</strong>);
+      } else if (match[3]) {
+        const url = match[3];
+        parts.push(
+          <a key={match.index} href={url} target="_blank" rel="noopener noreferrer" className="underline break-all hover:opacity-80">
+            {url.length > 50 ? url.slice(0, 50) + '…' : url}
+          </a>
+        );
+      }
+      lastIndex = regex.lastIndex;
+    }
+    if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+    return parts;
+  };
+
   const renderMessageContent = (msg: ChatMessage) => {
     if (msg.message_type === 'image') {
       return (
@@ -198,7 +225,7 @@ export default function WebChat() {
         </a>
       );
     }
-    return <p className="whitespace-pre-wrap">{msg.message}</p>;
+    return <p className="whitespace-pre-wrap leading-relaxed">{formatText(msg.message)}</p>;
   };
 
   if (isPremium === false) {
