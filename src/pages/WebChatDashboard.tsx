@@ -267,7 +267,7 @@ export default function WebChatDashboard() {
               <p className="text-[10px] font-semibold opacity-75 mb-0.5">Anda (Admin)</p>
             )}
             {msg.sender === "ai" && (
-              <p className="text-[10px] font-semibold opacity-75 mb-0.5">🤖 AI Bot</p>
+              <p className="text-[10px] font-semibold opacity-75 mb-0.5">Admin Ayo Pintar</p>
             )}
             {isImage ? (
               <a href={msg.message} target="_blank" rel="noopener noreferrer">
@@ -339,7 +339,7 @@ export default function WebChatDashboard() {
                             <Phone className="w-3 h-3" /> {c.visitor_phone}
                           </p>
                           <p className={`text-xs truncate mt-0.5 ${c.unread ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
-                            {c.last_sender === 'admin' ? '✓ Anda: ' : c.last_sender === 'ai' ? '🤖 Bot: ' : ''}
+                            {c.last_sender === 'admin' ? '✓ Anda: ' : c.last_sender === 'ai' ? 'Admin Ayo Pintar: ' : ''}
                             {c.last_message}
                           </p>
                         </div>
