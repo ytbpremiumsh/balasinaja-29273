@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { Send, Bot, User, Loader2, Image } from "lucide-react";
+import { Send, Bot, User, Loader2, Image, LogOut } from "lucide-react";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -26,16 +26,17 @@ export default function WebChat() {
   const [botAvatar, setBotAvatar] = useState("");
   const [isPremium, setIsPremium] = useState<boolean | null>(null);
   const [visitorInfo, setVisitorInfo] = useState<VisitorInfo | null>(() => {
-    const stored = sessionStorage.getItem(`webchat_visitor_${token}`);
+    // Use localStorage for persistent session across browser restarts
+    const stored = localStorage.getItem(`webchat_visitor_${token}`);
     return stored ? JSON.parse(stored) : null;
   });
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [sessionId] = useState(() => {
-    const stored = sessionStorage.getItem(`webchat_session_${token}`);
+    const stored = localStorage.getItem(`webchat_session_${token}`);
     if (stored) return stored;
     const id = crypto.randomUUID();
-    sessionStorage.setItem(`webchat_session_${token}`, id);
+    localStorage.setItem(`webchat_session_${token}`, id);
     return id;
   });
   const [uploading, setUploading] = useState(false);
@@ -95,7 +96,16 @@ export default function WebChat() {
     if (phone.length < 8) return;
     const info = { name: formName.trim(), phone };
     setVisitorInfo(info);
-    sessionStorage.setItem(`webchat_visitor_${token}`, JSON.stringify(info));
+    localStorage.setItem(`webchat_visitor_${token}`, JSON.stringify(info));
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem(`webchat_visitor_${token}`);
+    localStorage.removeItem(`webchat_session_${token}`);
+    setVisitorInfo(null);
+    setMessages([]);
+    setFormName("");
+    setFormPhone("");
   };
 
   const sendMessage = async (messageText?: string, messageType: string = 'text') => {
@@ -143,11 +153,6 @@ export default function WebChat() {
 
     setUploading(true);
     try {
-      // Upload via edge function
-      const formData = new FormData();
-      formData.append('file', file);
-
-      // Upload directly using fetch to supabase storage
       const ext = file.name.split('.').pop();
       const filePath = `visitors/${sessionId}/${Date.now()}.${ext}`;
       
@@ -192,7 +197,6 @@ export default function WebChat() {
 
   const formatText = (text: string) => {
     const parts: React.ReactNode[] = [];
-    // Match **bold** or URLs
     const regex = /(\*\*(.+?)\*\*)|(https?:\/\/[^\s<]+)/g;
     let lastIndex = 0;
     let match: RegExpExecArray | null;
@@ -306,10 +310,17 @@ export default function WebChat() {
             <Bot className="w-5 h-5" />
           </div>
         )}
-        <div>
+        <div className="flex-1">
           <h1 className="font-semibold text-sm">{businessName}</h1>
           <p className="text-xs text-blue-100">Online • Powered by BalasinAja</p>
         </div>
+        <button
+          onClick={handleLogout}
+          className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
+          title="Logout"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Messages */}
@@ -344,6 +355,9 @@ export default function WebChat() {
               }`}>
                 {msg.sender === "admin" && (
                   <p className="text-[10px] font-semibold text-emerald-600 mb-0.5">Admin</p>
+                )}
+                {msg.sender === "ai" && (
+                  <p className="text-[10px] font-semibold text-slate-400 mb-0.5">🤖 Bot</p>
                 )}
                 {renderMessageContent(msg)}
                 <p className={`text-[10px] mt-1 ${msg.sender === "visitor" ? "text-blue-200" : "text-slate-400"}`}>
