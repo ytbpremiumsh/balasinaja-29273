@@ -110,6 +110,8 @@ serve(async (req) => {
           session_id,
           sender: 'ai',
           message: aiReply,
+          visitor_name: visitor_name || null,
+          visitor_phone: visitor_phone || null,
         });
 
         return new Response(JSON.stringify({ reply: aiReply }), {
