@@ -240,6 +240,29 @@ export default function WebChatDashboard() {
 
   const selectedContactInfo = contacts.find(c => c.visitor_phone === selectedPhone);
 
+  const formatMessageText = (text: string) => {
+    const parts: (string | JSX.Element)[] = [];
+    const regex = /(\*\*(.+?)\*\*)|(https?:\/\/[^\s<]+)/g;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
+      if (match[1]) {
+        parts.push(<strong key={match.index}>{match[2]}</strong>);
+      } else if (match[3]) {
+        const url = match[3];
+        parts.push(
+          <a key={match.index} href={url} target="_blank" rel="noopener noreferrer" className="underline break-all hover:opacity-80">
+            {url.length > 50 ? url.slice(0, 50) + '…' : url}
+          </a>
+        );
+      }
+      lastIndex = regex.lastIndex;
+    }
+    if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+    return parts;
+  };
+
   const renderMessage = (msg: ChatMessage) => {
     const isImage = msg.message_type === 'image';
     return (
@@ -274,7 +297,7 @@ export default function WebChatDashboard() {
                 <img src={msg.message} alt="Attachment" className="max-w-[250px] rounded-lg cursor-pointer hover:opacity-90" />
               </a>
             ) : (
-              <p className="whitespace-pre-wrap">{msg.message}</p>
+              <p className="whitespace-pre-wrap">{formatMessageText(msg.message)}</p>
             )}
             <p className={`text-[10px] mt-1 opacity-60`}>
               {new Date(msg.created_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
