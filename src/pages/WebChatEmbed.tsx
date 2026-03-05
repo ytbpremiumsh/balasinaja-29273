@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, ExternalLink, Code, Loader2, MessageCircle, Upload, Trash2, Crown } from "lucide-react";
+import { Copy, ExternalLink, Code, Loader2, MessageCircle, Upload, Trash2, Crown, Save } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 
 export default function WebChatEmbed() {
   const [loading, setLoading] = useState(true);
@@ -18,6 +19,9 @@ export default function WebChatEmbed() {
   const [userPlan, setUserPlan] = useState("");
   const [botAvatar, setBotAvatar] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [widgetText, setWidgetText] = useState("Hubungi Kami 💬");
+  const [widgetTextEnabled, setWidgetTextEnabled] = useState(true);
+  const [savingWidget, setSavingWidget] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -33,18 +37,20 @@ export default function WebChatEmbed() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const [profileRes, avatarRes] = await Promise.all([
+      const [profileRes, avatarRes, widgetTextRes, widgetEnabledRes] = await Promise.all([
         supabase.from("profiles").select("webhook_token, plan").eq("user_id", session.user.id).single(),
         supabase.from("settings").select("value").eq("user_id", session.user.id).eq("key", "chat_bot_avatar").maybeSingle(),
+        supabase.from("settings").select("value").eq("user_id", session.user.id).eq("key", "chat_widget_text").maybeSingle(),
+        supabase.from("settings").select("value").eq("user_id", session.user.id).eq("key", "chat_widget_text_enabled").maybeSingle(),
       ]);
 
       if (profileRes.data) {
         setWebhookToken(profileRes.data.webhook_token || "");
         setUserPlan(profileRes.data.plan || "trial");
       }
-      if (avatarRes.data) {
-        setBotAvatar(avatarRes.data.value || "");
-      }
+      if (avatarRes.data) setBotAvatar(avatarRes.data.value || "");
+      if (widgetTextRes.data) setWidgetText(widgetTextRes.data.value || "Hubungi Kami 💬");
+      if (widgetEnabledRes.data) setWidgetTextEnabled(widgetEnabledRes.data.value === "true");
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -119,6 +125,34 @@ export default function WebChatEmbed() {
     }
   };
 
+  const saveWidgetSettings = async () => {
+    setSavingWidget(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const settings = [
+        { key: "chat_widget_text", value: widgetText },
+        { key: "chat_widget_text_enabled", value: String(widgetTextEnabled) },
+      ];
+
+      for (const s of settings) {
+        const { data: existing } = await supabase
+          .from("settings").select("id").eq("user_id", session.user.id).eq("key", s.key).maybeSingle();
+        if (existing) {
+          await supabase.from("settings").update({ value: s.value }).eq("id", existing.id);
+        } else {
+          await supabase.from("settings").insert({ user_id: session.user.id, key: s.key, value: s.value });
+        }
+      }
+      toast({ title: "Berhasil", description: "Pengaturan widget disimpan" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setSavingWidget(false);
+    }
+  };
+
   const chatUrl = `${baseUrl}/chat/${webhookToken}`;
   
   const iframeCode = `<iframe 
@@ -138,7 +172,16 @@ export default function WebChatEmbed() {
   btn.style.cssText = 'position:fixed;bottom:20px;right:20px;width:60px;height:60px;background:linear-gradient(135deg,#2563eb,#3b82f6);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:white;box-shadow:0 4px 20px rgba(37,99,235,0.4);z-index:9999;transition:transform 0.2s';
   btn.onmouseenter = function(){ this.style.transform='scale(1.1)' };
   btn.onmouseleave = function(){ this.style.transform='scale(1)' };
-
+${widgetTextEnabled ? `
+  var tooltip = document.createElement('div');
+  tooltip.id = 'balasinaja-tooltip';
+  tooltip.innerHTML = '${widgetText.replace(/'/g, "\\'")}';
+  tooltip.style.cssText = 'position:fixed;bottom:30px;right:90px;background:#fff;color:#1e293b;padding:8px 16px;border-radius:20px;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;white-space:nowrap;animation:bsa-bounce 2s ease-in-out infinite';
+  var style = document.createElement('style');
+  style.textContent = '@keyframes bsa-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}';
+  document.head.appendChild(style);
+  document.body.appendChild(tooltip);
+` : ''}
   var frame = document.createElement('div');
   frame.id = 'balasinaja-chat-frame';
   frame.style.cssText = 'position:fixed;bottom:90px;right:20px;width:380px;height:550px;z-index:9998;display:none;border-radius:12px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.2)';
@@ -148,6 +191,7 @@ export default function WebChatEmbed() {
   btn.onclick = function() {
     open = !open;
     frame.style.display = open ? 'block' : 'none';
+    ${widgetTextEnabled ? "var tt = document.getElementById('balasinaja-tooltip'); if(tt) tt.style.display = open ? 'none' : 'block';" : ''}
     btn.innerHTML = open 
       ? '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
       : '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>';
@@ -256,7 +300,43 @@ export default function WebChatEmbed() {
                 </CardContent>
               </Card>
 
-              {/* Direct URL */}
+              {/* Widget Text Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageCircle className="w-5 h-5" />
+                    Teks Floating Widget
+                  </CardTitle>
+                  <CardDescription>
+                    Atur teks tooltip yang muncul di samping tombol chat melayang
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="widget-text-toggle">Tampilkan teks tooltip</Label>
+                    <Switch
+                      id="widget-text-toggle"
+                      checked={widgetTextEnabled}
+                      onCheckedChange={setWidgetTextEnabled}
+                    />
+                  </div>
+                  {widgetTextEnabled && (
+                    <div className="space-y-2">
+                      <Label htmlFor="widget-text">Teks Tooltip</Label>
+                      <Input
+                        id="widget-text"
+                        value={widgetText}
+                        onChange={(e) => setWidgetText(e.target.value)}
+                        placeholder="Hubungi Kami 💬"
+                      />
+                    </div>
+                  )}
+                  <Button onClick={saveWidgetSettings} disabled={savingWidget}>
+                    {savingWidget ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    Simpan Pengaturan
+                  </Button>
+                </CardContent>
+              </Card>
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">

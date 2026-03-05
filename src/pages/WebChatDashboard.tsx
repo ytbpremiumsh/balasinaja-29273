@@ -293,13 +293,13 @@ export default function WebChatDashboard() {
           <h1 className="text-2xl font-bold">Web Chat Dashboard</h1>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" style={{ minHeight: "70vh" }}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-120px)]">
           {/* Contact List */}
-          <Card className={`lg:col-span-1 ${selectedPhone ? "hidden lg:block" : ""}`}>
+          <Card className={`lg:col-span-1 flex flex-col overflow-hidden ${selectedPhone ? "hidden lg:flex" : ""}`}>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">Percakapan ({contacts.length})</CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-0 flex-1 overflow-y-auto">
               {loading ? (
                 <div className="flex justify-center py-12">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -352,7 +352,7 @@ export default function WebChatDashboard() {
           </Card>
 
           {/* Chat Area */}
-          <Card className={`lg:col-span-2 flex flex-col ${!selectedPhone ? "hidden lg:flex" : ""}`}>
+          <Card className={`lg:col-span-2 flex flex-col overflow-hidden ${!selectedPhone ? "hidden lg:flex" : ""}`}>
             {selectedPhone ? (
               <>
                 <div className="border-b border-border px-4 py-3 flex items-center gap-3">
@@ -370,7 +370,7 @@ export default function WebChatDashboard() {
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3" style={{ maxHeight: "55vh" }}>
+                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-0">
                   {messages.map(renderMessage)}
                   <div ref={messagesEndRef} />
                 </div>
