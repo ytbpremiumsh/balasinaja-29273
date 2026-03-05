@@ -34,7 +34,12 @@ interface KnowledgeItem {
   answer: string;
 }
 
-export default function WebChatDashboard() {
+interface WebChatDashboardProps {
+  embedUserId?: string | null;
+  isEmbedded?: boolean;
+}
+
+export default function WebChatDashboard({ embedUserId, isEmbedded }: WebChatDashboardProps = {}) {
   const [contacts, setContacts] = useState<ChatContact[]>([]);
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -82,13 +87,17 @@ export default function WebChatDashboard() {
 
   const fetchContacts = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      let userId = embedUserId;
+      if (!userId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        userId = session.user.id;
+      }
 
       const { data, error } = await supabase
         .from('web_chats')
         .select('session_id, sender, message, message_type, created_at, visitor_name, visitor_phone')
-        .eq('user_id', session.user.id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -308,192 +317,193 @@ export default function WebChatDashboard() {
     );
   };
 
-  return (
-    <Layout>
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <MessageCircle className="w-6 h-6 text-primary" />
-          <h1 className="text-2xl font-bold">Web Chat Dashboard</h1>
-        </div>
+  const content = (
+    <div className={`space-y-4 ${isEmbedded ? 'p-4' : ''}`}>
+      <div className="flex items-center gap-3">
+        <MessageCircle className="w-6 h-6 text-primary" />
+        <h1 className="text-2xl font-bold">Web Chat Dashboard</h1>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-120px)]">
-          {/* Contact List */}
-          <Card className={`lg:col-span-1 flex flex-col overflow-hidden ${selectedPhone ? "hidden lg:flex" : ""}`}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Percakapan ({contacts.length})</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0 flex-1 overflow-y-auto">
-              {loading ? (
-                <div className="flex justify-center py-12">
-                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : contacts.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground text-sm">
-                  <MessageCircle className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                  <p>Belum ada percakapan</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {contacts.map((c) => (
-                    <button
-                      key={c.visitor_phone}
-                      onClick={() => openContact(c.visitor_phone)}
-                      className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors ${
-                        selectedPhone === c.visitor_phone ? "bg-muted" : ""
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="relative w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <User className="w-4 h-4 text-primary" />
-                          {c.unread && (
-                            <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-destructive rounded-full border-2 border-background" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <p className={`text-sm truncate ${c.unread ? "font-bold" : "font-medium"}`}>
-                              {c.visitor_name || "Visitor"}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground flex-shrink-0 ml-2">
-                              {new Date(c.last_time).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
-                            </p>
-                          </div>
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Phone className="w-3 h-3" /> {c.visitor_phone}
-                          </p>
-                          <p className={`text-xs truncate mt-0.5 ${c.unread ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
-                            {c.last_sender === 'admin' ? '✓ Anda: ' : c.last_sender === 'ai' ? 'Admin Ayo Pintar: ' : ''}
-                            {c.last_message}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Chat Area */}
-          <Card className={`lg:col-span-2 flex flex-col overflow-hidden ${!selectedPhone ? "hidden lg:flex" : ""}`}>
-            {selectedPhone ? (
-              <>
-                <div className="border-b border-border px-4 py-3 flex items-center gap-3">
-                  <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSelectedPhone(null)}>
-                    <ArrowLeft className="w-4 h-4" />
-                  </Button>
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="w-4 h-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm">{selectedContactInfo?.visitor_name || "Visitor"}</p>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Phone className="w-3 h-3" /> {selectedPhone}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-0">
-                  {messages.map(renderMessage)}
-                  <div ref={messagesEndRef} />
-                </div>
-
-                {/* Quick Replies from Knowledge Base */}
-                {showQuickReplies && (
-                  <div className="border-t border-border bg-muted/30 max-h-[200px] overflow-y-auto">
-                    <div className="px-4 py-2 sticky top-0 bg-muted/50 backdrop-blur-sm">
-                      <div className="flex items-center gap-2">
-                        <BookOpen className="w-4 h-4 text-primary" />
-                        <span className="text-xs font-semibold text-primary">Balasan Pintas dari Knowledge Base</span>
-                      </div>
-                      <Input
-                        value={knowledgeSearch}
-                        onChange={(e) => setKnowledgeSearch(e.target.value)}
-                        placeholder="Cari knowledge..."
-                        className="mt-2 h-8 text-xs"
-                      />
-                    </div>
-                    {filteredKnowledge.length === 0 ? (
-                      <div className="px-4 py-3 text-xs text-muted-foreground text-center">
-                        {knowledgeItems.length === 0 ? "Belum ada data Knowledge Base" : "Tidak ditemukan"}
-                      </div>
-                    ) : (
-                      <div className="divide-y divide-border">
-                        {filteredKnowledge.map((k) => (
-                          <div key={k.id} className="px-4 py-2 hover:bg-muted/50 transition-colors">
-                            <p className="text-xs font-medium text-foreground truncate">Q: {k.question}</p>
-                            <p className="text-xs text-muted-foreground truncate mt-0.5">A: {k.answer}</p>
-                            <div className="flex gap-2 mt-1.5">
-                              <button
-                                onClick={() => useQuickReply(k.answer)}
-                                className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                              >
-                                Gunakan
-                              </button>
-                              <button
-                                onClick={() => sendQuickReply(k.answer)}
-                                className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
-                              >
-                                Kirim Langsung
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="border-t border-border px-4 py-3">
-                  <div className="flex gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading}
-                      className="flex-shrink-0"
-                    >
-                      {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
-                    </Button>
-                    <Button
-                      variant={showQuickReplies ? "default" : "ghost"}
-                      size="icon"
-                      onClick={() => setShowQuickReplies(!showQuickReplies)}
-                      className="flex-shrink-0"
-                      title="Balasan Pintas"
-                    >
-                      <Zap className="w-4 h-4" />
-                    </Button>
-                    <Input
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      placeholder="Ketik balasan manual..."
-                      onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), sendReply())}
-                    />
-                    <Button onClick={() => sendReply()} disabled={!replyText.trim() || sending} size="icon">
-                      {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                </div>
-              </>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-120px)]">
+        {/* Contact List */}
+        <Card className={`lg:col-span-1 flex flex-col overflow-hidden ${selectedPhone ? "hidden lg:flex" : ""}`}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Percakapan ({contacts.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 flex-1 overflow-y-auto">
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : contacts.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground text-sm">
+                <MessageCircle className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                <p>Belum ada percakapan</p>
+              </div>
             ) : (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">Pilih percakapan untuk melihat chat</p>
-                </div>
+              <div className="divide-y divide-border">
+                {contacts.map((c) => (
+                  <button
+                    key={c.visitor_phone}
+                    onClick={() => openContact(c.visitor_phone)}
+                    className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors ${
+                      selectedPhone === c.visitor_phone ? "bg-muted" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <User className="w-4 h-4 text-primary" />
+                        {c.unread && (
+                          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-destructive rounded-full border-2 border-background" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className={`text-sm truncate ${c.unread ? "font-bold" : "font-medium"}`}>
+                            {c.visitor_name || "Visitor"}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground flex-shrink-0 ml-2">
+                            {new Date(c.last_time).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Phone className="w-3 h-3" /> {c.visitor_phone}
+                        </p>
+                        <p className={`text-xs truncate mt-0.5 ${c.unread ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
+                          {c.last_sender === 'admin' ? '✓ Anda: ' : c.last_sender === 'ai' ? 'Admin Ayo Pintar: ' : ''}
+                          {c.last_message}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
               </div>
             )}
-          </Card>
-        </div>
+          </CardContent>
+        </Card>
+
+        {/* Chat Area */}
+        <Card className={`lg:col-span-2 flex flex-col overflow-hidden ${!selectedPhone ? "hidden lg:flex" : ""}`}>
+          {selectedPhone ? (
+            <>
+              <div className="border-b border-border px-4 py-3 flex items-center gap-3">
+                <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSelectedPhone(null)}>
+                  <ArrowLeft className="w-4 h-4" />
+                </Button>
+                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                  <User className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">{selectedContactInfo?.visitor_name || "Visitor"}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Phone className="w-3 h-3" /> {selectedPhone}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-0">
+                {messages.map(renderMessage)}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Quick Replies from Knowledge Base */}
+              {showQuickReplies && (
+                <div className="border-t border-border bg-muted/30 max-h-[200px] overflow-y-auto">
+                  <div className="px-4 py-2 sticky top-0 bg-muted/50 backdrop-blur-sm">
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-primary" />
+                      <span className="text-xs font-semibold text-primary">Balasan Pintas dari Knowledge Base</span>
+                    </div>
+                    <Input
+                      value={knowledgeSearch}
+                      onChange={(e) => setKnowledgeSearch(e.target.value)}
+                      placeholder="Cari knowledge..."
+                      className="mt-2 h-8 text-xs"
+                    />
+                  </div>
+                  {filteredKnowledge.length === 0 ? (
+                    <div className="px-4 py-3 text-xs text-muted-foreground text-center">
+                      {knowledgeItems.length === 0 ? "Belum ada data Knowledge Base" : "Tidak ditemukan"}
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {filteredKnowledge.map((k) => (
+                        <div key={k.id} className="px-4 py-2 hover:bg-muted/50 transition-colors">
+                          <p className="text-xs font-medium text-foreground truncate">Q: {k.question}</p>
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">A: {k.answer}</p>
+                          <div className="flex gap-2 mt-1.5">
+                            <button
+                              onClick={() => useQuickReply(k.answer)}
+                              className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                            >
+                              Gunakan
+                            </button>
+                            <button
+                              onClick={() => sendQuickReply(k.answer)}
+                              className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                            >
+                              Kirim Langsung
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="border-t border-border px-4 py-3">
+                <div className="flex gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="flex-shrink-0"
+                  >
+                    {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
+                  </Button>
+                  <Button
+                    variant={showQuickReplies ? "default" : "ghost"}
+                    size="icon"
+                    onClick={() => setShowQuickReplies(!showQuickReplies)}
+                    className="flex-shrink-0"
+                    title="Balasan Pintas"
+                  >
+                    <Zap className="w-4 h-4" />
+                  </Button>
+                  <Input
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder="Ketik balasan manual..."
+                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), sendReply())}
+                  />
+                  <Button onClick={() => sendReply()} disabled={!replyText.trim() || sending} size="icon">
+                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+              <div className="text-center">
+                <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">Pilih percakapan untuk melihat chat</p>
+              </div>
+            </div>
+          )}
+        </Card>
       </div>
-    </Layout>
+    </div>
   );
+
+  if (isEmbedded) return content;
+  return <Layout>{content}</Layout>;
 }

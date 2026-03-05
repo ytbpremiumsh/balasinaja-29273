@@ -340,6 +340,39 @@ export type Database = {
         }
         Relationships: []
       }
+      dashboard_embed_tokens: {
+        Row: {
+          created_at: string
+          duration: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          label: string | null
+          token: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          token?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          token?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       inbox: {
         Row: {
           category_id: string | null

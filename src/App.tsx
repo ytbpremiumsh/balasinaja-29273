@@ -31,6 +31,7 @@ import Tickets from "./pages/Tickets";
 import WebChat from "./pages/WebChat";
 import WebChatEmbed from "./pages/WebChatEmbed";
 import WebChatDashboard from "./pages/WebChatDashboard";
+import EmbedDashboard from "./pages/EmbedDashboard";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
 
@@ -62,6 +63,7 @@ const App = () => (
           <Route path="/web-chat" element={<ProtectedRoute><WebChatEmbed /></ProtectedRoute>} />
           <Route path="/web-chat/dashboard" element={<ProtectedRoute><WebChatDashboard /></ProtectedRoute>} />
           <Route path="/chat/:token" element={<WebChat />} />
+          <Route path="/embed/dashboard/:embedToken" element={<EmbedDashboard />} />
           
           {/* Admin Routes */}
           <Route path="/admin" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />

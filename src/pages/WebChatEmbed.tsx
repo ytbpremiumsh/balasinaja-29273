@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Copy, ExternalLink, Code, Loader2, MessageCircle, Upload, Trash2, Crown, Save } from "lucide-react";
+import DashboardEmbedTokens from "@/components/DashboardEmbedTokens";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -400,6 +401,9 @@ ${widgetTextEnabled ? `
                   </Tabs>
                 </CardContent>
               </Card>
+
+              {/* Dashboard Embed Tokens */}
+              <DashboardEmbedTokens />
 
               {/* Preview */}
               <Card>
