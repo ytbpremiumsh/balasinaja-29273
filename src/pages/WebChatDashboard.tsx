@@ -180,7 +180,7 @@ export default function WebChatDashboard({ embedUserId, isEmbedded }: WebChatDas
       const sessionId = getLatestSessionId() || crypto.randomUUID();
 
       const { error } = await supabase.from('web_chats').insert({
-        user_id: session.user.id,
+        user_id: userId,
         session_id: sessionId,
         sender: 'admin',
         message: text,
