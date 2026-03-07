@@ -72,6 +72,6 @@ export default function EmbedDashboard() {
     );
   }
 
-  // Pass userId as prop so the embedded dashboard knows which user's data to show
-  return <WebChatDashboard embedUserId={userId} isEmbedded />;
+  // Pass userId and token as props so the embedded dashboard can use the proxy
+  return <WebChatDashboard embedUserId={userId} embedToken={embedToken} isEmbedded />;
 }
