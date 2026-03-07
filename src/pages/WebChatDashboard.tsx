@@ -167,6 +167,11 @@ export default function WebChatDashboard({ embedUserId, embedToken, isEmbedded }
   };
 
   const fetchMessages = async (phone: string) => {
+    if (embedToken) {
+      const json = await callProxy('fetch_messages', { phone });
+      setMessages(json.data || []);
+      return;
+    }
     const userId = await getUserId();
     if (!userId) return;
 
