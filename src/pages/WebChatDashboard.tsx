@@ -209,11 +209,11 @@ export default function WebChatDashboard({ embedUserId, isEmbedded }: WebChatDas
 
     setUploading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
+      const userId = await getUserId();
+      if (!userId) throw new Error("Not authenticated");
 
       const ext = file.name.split('.').pop();
-      const filePath = `${session.user.id}/${Date.now()}.${ext}`;
+      const filePath = `${userId}/${Date.now()}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from('web-chat-attachments')
