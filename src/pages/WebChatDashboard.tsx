@@ -92,6 +92,11 @@ export default function WebChatDashboard({ embedUserId, embedToken, isEmbedded }
   }, [messages]);
 
   const fetchKnowledge = async () => {
+    if (embedToken) {
+      const json = await callProxy('fetch_knowledge');
+      setKnowledgeItems(json.data || []);
+      return;
+    }
     const { data } = await supabase
       .from('ai_knowledge_base')
       .select('id, question, answer')
