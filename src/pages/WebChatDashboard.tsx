@@ -36,10 +36,11 @@ interface KnowledgeItem {
 
 interface WebChatDashboardProps {
   embedUserId?: string | null;
+  embedToken?: string | null;
   isEmbedded?: boolean;
 }
 
-export default function WebChatDashboard({ embedUserId, isEmbedded }: WebChatDashboardProps = {}) {
+export default function WebChatDashboard({ embedUserId, embedToken, isEmbedded }: WebChatDashboardProps = {}) {
   const [contacts, setContacts] = useState<ChatContact[]>([]);
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
