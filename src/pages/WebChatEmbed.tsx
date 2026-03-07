@@ -176,10 +176,10 @@ export default function WebChatEmbed() {
 ${widgetTextEnabled ? `
   var tooltip = document.createElement('div');
   tooltip.id = 'balasinaja-tooltip';
-  tooltip.innerHTML = '${widgetText.replace(/'/g, "\\'")}';
-  tooltip.style.cssText = 'position:fixed;bottom:30px;right:90px;background:#fff;color:#1e293b;padding:8px 16px;border-radius:20px;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;white-space:nowrap;animation:bsa-bounce 2s ease-in-out infinite';
+  tooltip.textContent = decodeURIComponent('${encodeURIComponent(widgetText)}');
+  tooltip.style.cssText = 'position:fixed;bottom:35px;right:90px;background:#ffffff;color:#1e293b;padding:10px 18px;border-radius:24px;font-size:14px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,0.15);z-index:10000;white-space:nowrap;display:block;animation:bsa-bounce 2s ease-in-out infinite';
   var style = document.createElement('style');
-  style.textContent = '@keyframes bsa-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}';
+  style.textContent = '@keyframes bsa-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}';
   document.head.appendChild(style);
   document.body.appendChild(tooltip);
 ` : ''}
