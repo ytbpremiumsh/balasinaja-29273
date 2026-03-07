@@ -174,8 +174,8 @@ export default function WebChatDashboard({ embedUserId, isEmbedded }: WebChatDas
     if (!text || !selectedPhone || sending) return;
     setSending(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
+      const userId = await getUserId();
+      if (!userId) throw new Error("Not authenticated");
 
       const sessionId = getLatestSessionId() || crypto.randomUUID();
 
