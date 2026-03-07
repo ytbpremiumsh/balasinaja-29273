@@ -142,13 +142,13 @@ export default function WebChatDashboard({ embedUserId, isEmbedded }: WebChatDas
   };
 
   const fetchMessages = async (phone: string) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    const userId = await getUserId();
+    if (!userId) return;
 
     const { data } = await supabase
       .from('web_chats')
       .select('id, sender, message, message_type, created_at, visitor_name, session_id')
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .eq('visitor_phone', phone)
       .order('created_at', { ascending: true });
 
