@@ -85,14 +85,16 @@ export default function WebChatDashboard({ embedUserId, isEmbedded }: WebChatDas
     setKnowledgeItems(data || []);
   };
 
+  const getUserId = async (): Promise<string | null> => {
+    if (embedUserId) return embedUserId;
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.user?.id || null;
+  };
+
   const fetchContacts = async () => {
     try {
-      let userId = embedUserId;
-      if (!userId) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-        userId = session.user.id;
-      }
+      const userId = await getUserId();
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from('web_chats')
@@ -140,13 +142,13 @@ export default function WebChatDashboard({ embedUserId, isEmbedded }: WebChatDas
   };
 
   const fetchMessages = async (phone: string) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    const userId = await getUserId();
+    if (!userId) return;
 
     const { data } = await supabase
       .from('web_chats')
       .select('id, sender, message, message_type, created_at, visitor_name, session_id')
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .eq('visitor_phone', phone)
       .order('created_at', { ascending: true });
 
@@ -172,13 +174,13 @@ export default function WebChatDashboard({ embedUserId, isEmbedded }: WebChatDas
     if (!text || !selectedPhone || sending) return;
     setSending(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
+      const userId = await getUserId();
+      if (!userId) throw new Error("Not authenticated");
 
       const sessionId = getLatestSessionId() || crypto.randomUUID();
 
       const { error } = await supabase.from('web_chats').insert({
-        user_id: session.user.id,
+        user_id: userId,
         session_id: sessionId,
         sender: 'admin',
         message: text,
@@ -207,11 +209,11 @@ export default function WebChatDashboard({ embedUserId, isEmbedded }: WebChatDas
 
     setUploading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
+      const userId = await getUserId();
+      if (!userId) throw new Error("Not authenticated");
 
       const ext = file.name.split('.').pop();
-      const filePath = `${session.user.id}/${Date.now()}.${ext}`;
+      const filePath = `${userId}/${Date.now()}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from('web-chat-attachments')
