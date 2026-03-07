@@ -36,10 +36,11 @@ interface KnowledgeItem {
 
 interface WebChatDashboardProps {
   embedUserId?: string | null;
+  embedToken?: string | null;
   isEmbedded?: boolean;
 }
 
-export default function WebChatDashboard({ embedUserId, isEmbedded }: WebChatDashboardProps = {}) {
+export default function WebChatDashboard({ embedUserId, embedToken, isEmbedded }: WebChatDashboardProps = {}) {
   const [contacts, setContacts] = useState<ChatContact[]>([]);
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -57,6 +58,19 @@ export default function WebChatDashboard({ embedUserId, isEmbedded }: WebChatDas
   const [knowledgeSearch, setKnowledgeSearch] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/embed-chat-proxy`;
+
+  const callProxy = async (action: string, extra: Record<string, any> = {}) => {
+    const res = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+      body: JSON.stringify({ embedToken, action, ...extra }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Proxy error');
+    return json;
+  };
 
   useEffect(() => {
     fetchContacts();
@@ -78,6 +92,11 @@ export default function WebChatDashboard({ embedUserId, isEmbedded }: WebChatDas
   }, [messages]);
 
   const fetchKnowledge = async () => {
+    if (embedToken) {
+      const json = await callProxy('fetch_knowledge');
+      setKnowledgeItems(json.data || []);
+      return;
+    }
     const { data } = await supabase
       .from('ai_knowledge_base')
       .select('id, question, answer')
@@ -93,16 +112,22 @@ export default function WebChatDashboard({ embedUserId, isEmbedded }: WebChatDas
 
   const fetchContacts = async () => {
     try {
-      const userId = await getUserId();
-      if (!userId) return;
+      let data: any[] | null = null;
 
-      const { data, error } = await supabase
-        .from('web_chats')
-        .select('session_id, sender, message, message_type, created_at, visitor_name, visitor_phone')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      if (embedToken) {
+        const json = await callProxy('fetch_contacts');
+        data = json.data;
+      } else {
+        const userId = await getUserId();
+        if (!userId) return;
+        const res = await supabase
+          .from('web_chats')
+          .select('session_id, sender, message, message_type, created_at, visitor_name, visitor_phone')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+        if (res.error) throw res.error;
+        data = res.data;
+      }
 
       const phoneMap = new Map<string, ChatContact>();
       data?.forEach((msg) => {
@@ -142,6 +167,11 @@ export default function WebChatDashboard({ embedUserId, isEmbedded }: WebChatDas
   };
 
   const fetchMessages = async (phone: string) => {
+    if (embedToken) {
+      const json = await callProxy('fetch_messages', { phone });
+      setMessages(json.data || []);
+      return;
+    }
     const userId = await getUserId();
     if (!userId) return;
 
@@ -174,21 +204,30 @@ export default function WebChatDashboard({ embedUserId, isEmbedded }: WebChatDas
     if (!text || !selectedPhone || sending) return;
     setSending(true);
     try {
-      const userId = await getUserId();
-      if (!userId) throw new Error("Not authenticated");
-
       const sessionId = getLatestSessionId() || crypto.randomUUID();
 
-      const { error } = await supabase.from('web_chats').insert({
-        user_id: userId,
-        session_id: sessionId,
-        sender: 'admin',
-        message: text,
-        message_type: messageType,
-        visitor_phone: selectedPhone,
-      });
+      if (embedToken) {
+        await callProxy('send_reply', {
+          message: text,
+          messageType,
+          sessionId,
+          visitorPhone: selectedPhone,
+        });
+      } else {
+        const userId = await getUserId();
+        if (!userId) throw new Error("Not authenticated");
 
-      if (error) throw error;
+        const { error } = await supabase.from('web_chats').insert({
+          user_id: userId,
+          session_id: sessionId,
+          sender: 'admin',
+          message: text,
+          message_type: messageType,
+          visitor_phone: selectedPhone,
+        });
+        if (error) throw error;
+      }
+
       if (!messageText) setReplyText("");
       setShowQuickReplies(false);
       fetchMessages(selectedPhone);
