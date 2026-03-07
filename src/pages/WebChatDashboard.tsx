@@ -85,14 +85,16 @@ export default function WebChatDashboard({ embedUserId, isEmbedded }: WebChatDas
     setKnowledgeItems(data || []);
   };
 
+  const getUserId = async (): Promise<string | null> => {
+    if (embedUserId) return embedUserId;
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.user?.id || null;
+  };
+
   const fetchContacts = async () => {
     try {
-      let userId = embedUserId;
-      if (!userId) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-        userId = session.user.id;
-      }
+      const userId = await getUserId();
+      if (!userId) return;
 
       const { data, error } = await supabase
         .from('web_chats')
