@@ -112,16 +112,22 @@ export default function WebChatDashboard({ embedUserId, embedToken, isEmbedded }
 
   const fetchContacts = async () => {
     try {
-      const userId = await getUserId();
-      if (!userId) return;
+      let data: any[] | null = null;
 
-      const { data, error } = await supabase
-        .from('web_chats')
-        .select('session_id, sender, message, message_type, created_at, visitor_name, visitor_phone')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      if (embedToken) {
+        const json = await callProxy('fetch_contacts');
+        data = json.data;
+      } else {
+        const userId = await getUserId();
+        if (!userId) return;
+        const res = await supabase
+          .from('web_chats')
+          .select('session_id, sender, message, message_type, created_at, visitor_name, visitor_phone')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+        if (res.error) throw res.error;
+        data = res.data;
+      }
 
       const phoneMap = new Map<string, ChatContact>();
       data?.forEach((msg) => {
