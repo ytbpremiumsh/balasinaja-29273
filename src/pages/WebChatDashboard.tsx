@@ -59,6 +59,19 @@ export default function WebChatDashboard({ embedUserId, embedToken, isEmbedded }
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/embed-chat-proxy`;
+
+  const callProxy = async (action: string, extra: Record<string, any> = {}) => {
+    const res = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+      body: JSON.stringify({ embedToken, action, ...extra }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Proxy error');
+    return json;
+  };
+
   useEffect(() => {
     fetchContacts();
     fetchKnowledge();
