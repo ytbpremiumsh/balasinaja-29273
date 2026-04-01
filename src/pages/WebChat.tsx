@@ -92,8 +92,12 @@ export default function WebChat() {
     const phone = formPhone.trim().replace(/[^0-9+]/g, "");
     if (phone.length < 8) return;
     const info = { name: formName.trim(), phone };
+    // Use phone as session_id so same phone = same conversation thread
+    const newSessionId = `phone_${phone}`;
     setVisitorInfo(info);
+    setSessionId(newSessionId);
     localStorage.setItem(`webchat_visitor_${token}`, JSON.stringify(info));
+    localStorage.setItem(`webchat_session_${token}`, newSessionId);
   };
 
   const handleLogout = () => {
