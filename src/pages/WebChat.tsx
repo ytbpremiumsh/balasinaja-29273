@@ -47,8 +47,8 @@ export default function WebChat() {
   }, [token]);
 
   useEffect(() => {
-    if (isPremium === true && visitorInfo) fetchHistory();
-  }, [isPremium, visitorInfo]);
+    if (isPremium === true && visitorInfo && sessionId) fetchHistory();
+  }, [isPremium, visitorInfo, sessionId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
