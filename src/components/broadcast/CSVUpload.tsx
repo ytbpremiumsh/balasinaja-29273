@@ -15,29 +15,46 @@ export function CSVUpload({ onContactsUploaded }: CSVUploadProps) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
 
-  const parseCSV = (text: string): Array<{ phone: string; name?: string; tags?: string[] }> => {
+  const validatePhone = (phone: string): string | null => {
+    const cleaned = phone.replace(/[^0-9+]/g, '');
+    if (cleaned.length < 10 || cleaned.length > 20) return null;
+    if (!/^[0-9+]+$/.test(cleaned)) return null;
+    return cleaned;
+  };
+
+  const sanitizeName = (name: string): string => {
+    return name.replace(/[<>{}]/g, '').trim().slice(0, 100);
+  };
+
+  const parseCSV = (text: string): { contacts: Array<{ phone: string; name?: string; tags?: string[] }>; errors: string[] } => {
     const lines = text.split('\n').filter(line => line.trim());
     const contacts: Array<{ phone: string; name?: string; tags?: string[] }> = [];
+    const errors: string[] = [];
 
-    // Skip header if exists
     const startIndex = lines[0].toLowerCase().includes('phone') || lines[0].toLowerCase().includes('nama') ? 1 : 0;
 
     for (let i = startIndex; i < lines.length; i++) {
       const parts = lines[i].split(',').map(p => p.trim().replace(/['"]/g, ''));
       
       if (parts[0]) {
+        const validPhone = validatePhone(parts[0]);
+        if (!validPhone) {
+          errors.push(`Baris ${i + 1}: Nomor telepon tidak valid "${parts[0]}"`);
+          continue;
+        }
+
         const contact: { phone: string; name?: string; tags?: string[] } = {
-          phone: parts[0],
+          phone: validPhone,
         };
         
-        if (parts[1]) contact.name = parts[1];
-        if (parts[2]) contact.tags = parts[2].split(';').map(t => t.trim());
+        if (parts[1]) contact.name = sanitizeName(parts[1]);
+        if (parts[2]) contact.tags = parts[2].split(';').map(t => t.trim().slice(0, 50)).filter(Boolean);
         
         contacts.push(contact);
       }
     }
 
-    return contacts;
+    return { contacts, errors };
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
