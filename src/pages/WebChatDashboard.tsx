@@ -409,7 +409,17 @@ export default function WebChatDashboard({ embedUserId, embedToken, isEmbedded }
                             {c.visitor_name || "Visitor"}
                           </p>
                           <p className="text-[10px] text-muted-foreground flex-shrink-0 ml-2">
-                            {new Date(c.last_time).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                            {(() => {
+                              const msgDate = new Date(c.last_time);
+                              const today = new Date();
+                              const yesterday = new Date();
+                              yesterday.setDate(today.getDate() - 1);
+                              const isToday = msgDate.toDateString() === today.toDateString();
+                              const isYesterday = msgDate.toDateString() === yesterday.toDateString();
+                              if (isToday) return msgDate.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+                              if (isYesterday) return "Kemarin";
+                              return msgDate.toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" });
+                            })()}
                           </p>
                         </div>
                         <p className="text-xs text-muted-foreground flex items-center gap-1">
