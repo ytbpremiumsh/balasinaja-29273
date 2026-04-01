@@ -32,12 +32,9 @@ export default function WebChat() {
   });
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
-  const [sessionId] = useState(() => {
+  const [sessionId, setSessionId] = useState(() => {
     const stored = localStorage.getItem(`webchat_session_${token}`);
-    if (stored) return stored;
-    const id = crypto.randomUUID();
-    localStorage.setItem(`webchat_session_${token}`, id);
-    return id;
+    return stored || '';
   });
   const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
