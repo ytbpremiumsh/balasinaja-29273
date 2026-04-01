@@ -413,13 +413,86 @@ ${widgetTextEnabled ? `
                 </CardHeader>
                 <CardContent>
                   <div className="flex justify-center">
-                    <iframe
-                      src={chatUrl}
-                      width="380"
-                      height="550"
-                      style={{ border: "none", borderRadius: 12, boxShadow: "0 4px 24px rgba(0,0,0,0.15)" }}
-                    />
+                    {/* Floating Widget Preview Area */}
+                    <div className="relative w-full max-w-[500px] h-[620px] bg-slate-100 rounded-xl border border-border overflow-hidden">
+                      {/* Simulated website background */}
+                      <div className="p-4 space-y-3 opacity-30">
+                        <div className="h-4 w-3/4 bg-slate-300 rounded" />
+                        <div className="h-4 w-1/2 bg-slate-300 rounded" />
+                        <div className="h-32 w-full bg-slate-200 rounded-lg" />
+                        <div className="h-4 w-5/6 bg-slate-300 rounded" />
+                        <div className="h-4 w-2/3 bg-slate-300 rounded" />
+                      </div>
+
+                      {/* Chat iframe (shown when widget "open") */}
+                      <div
+                        className="absolute bottom-[90px] right-4 w-[360px] rounded-xl overflow-hidden transition-all duration-300"
+                        style={{
+                          boxShadow: "0 8px 40px rgba(0,0,0,0.2)",
+                          maxWidth: "calc(100% - 32px)",
+                          height: 480,
+                          display: "none",
+                        }}
+                        id="preview-chat-frame"
+                      >
+                        <iframe
+                          src={chatUrl}
+                          className="w-full h-full border-none"
+                        />
+                      </div>
+
+                      {/* Tooltip */}
+                      {widgetTextEnabled && (
+                        <div
+                          className="absolute bottom-[35px] right-[88px] bg-white text-slate-800 px-4 py-2.5 rounded-full text-sm font-semibold whitespace-nowrap z-10"
+                          style={{
+                            boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+                            animation: "bsa-tooltip-float 2s ease-in-out infinite",
+                          }}
+                          id="preview-tooltip"
+                        >
+                          {widgetText}
+                          {/* Arrow */}
+                          <div
+                            className="absolute top-1/2 -right-2 -translate-y-1/2 w-0 h-0"
+                            style={{
+                              borderTop: "6px solid transparent",
+                              borderBottom: "6px solid transparent",
+                              borderLeft: "8px solid white",
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {/* Floating Button */}
+                      <button
+                        className="absolute bottom-5 right-5 w-[56px] h-[56px] rounded-full flex items-center justify-center text-white cursor-pointer z-10 transition-transform duration-200 hover:scale-110"
+                        style={{
+                          background: "linear-gradient(135deg, #2563eb, #3b82f6)",
+                          boxShadow: "0 4px 20px rgba(37,99,235,0.4)",
+                        }}
+                        onClick={() => {
+                          const frame = document.getElementById("preview-chat-frame");
+                          const tooltip = document.getElementById("preview-tooltip");
+                          if (frame) {
+                            const isOpen = frame.style.display === "block";
+                            frame.style.display = isOpen ? "none" : "block";
+                            if (tooltip) tooltip.style.display = isOpen ? "block" : "none";
+                          }
+                        }}
+                      >
+                        <MessageCircle className="w-6 h-6" />
+                      </button>
+                    </div>
                   </div>
+
+                  {/* CSS animation for tooltip */}
+                  <style>{`
+                    @keyframes bsa-tooltip-float {
+                      0%, 100% { transform: translateY(0); }
+                      50% { transform: translateY(-5px); }
+                    }
+                  `}</style>
                 </CardContent>
               </Card>
             </>
