@@ -32,12 +32,9 @@ export default function WebChat() {
   });
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
-  const [sessionId] = useState(() => {
+  const [sessionId, setSessionId] = useState(() => {
     const stored = localStorage.getItem(`webchat_session_${token}`);
-    if (stored) return stored;
-    const id = crypto.randomUUID();
-    localStorage.setItem(`webchat_session_${token}`, id);
-    return id;
+    return stored || '';
   });
   const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -50,18 +47,18 @@ export default function WebChat() {
   }, [token]);
 
   useEffect(() => {
-    if (isPremium === true && visitorInfo) fetchHistory();
-  }, [isPremium, visitorInfo]);
+    if (isPremium === true && visitorInfo && sessionId) fetchHistory();
+  }, [isPremium, visitorInfo, sessionId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
-    if (!isPremium || !visitorInfo) return;
+    if (!isPremium || !visitorInfo || !sessionId) return;
     pollRef.current = setInterval(() => fetchHistory(), 5000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [isPremium, visitorInfo]);
+  }, [isPremium, visitorInfo, sessionId]);
 
   const callApi = async (body: any) => {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/web-chat`, {
@@ -95,8 +92,12 @@ export default function WebChat() {
     const phone = formPhone.trim().replace(/[^0-9+]/g, "");
     if (phone.length < 8) return;
     const info = { name: formName.trim(), phone };
+    // Use phone as session_id so same phone = same conversation thread
+    const newSessionId = `phone_${phone}`;
     setVisitorInfo(info);
+    setSessionId(newSessionId);
     localStorage.setItem(`webchat_visitor_${token}`, JSON.stringify(info));
+    localStorage.setItem(`webchat_session_${token}`, newSessionId);
   };
 
   const handleLogout = () => {
