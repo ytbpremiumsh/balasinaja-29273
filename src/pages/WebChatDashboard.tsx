@@ -443,7 +443,23 @@ export default function WebChatDashboard({ embedUserId, embedToken, isEmbedded }
               </div>
 
               <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-0">
-                {messages.map(renderMessage)}
+                {messages.map((msg, idx) => {
+                  const msgDate = new Date(msg.created_at).toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+                  const prevDate = idx > 0 ? new Date(messages[idx - 1].created_at).toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) : null;
+                  const showDateSeparator = idx === 0 || msgDate !== prevDate;
+                  return (
+                    <div key={msg.id}>
+                      {showDateSeparator && (
+                        <div className="flex items-center justify-center my-4">
+                          <div className="bg-muted text-muted-foreground text-xs px-3 py-1 rounded-full shadow-sm">
+                            {msgDate}
+                          </div>
+                        </div>
+                      )}
+                      {renderMessage(msg)}
+                    </div>
+                  );
+                })}
                 <div ref={messagesEndRef} />
               </div>
 
