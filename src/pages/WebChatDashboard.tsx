@@ -151,6 +151,11 @@ export default function WebChatDashboard({ embedUserId, embedToken, isEmbedded }
 
       const contactList = Array.from(phoneMap.values());
       contactList.forEach((c) => {
+        // If this contact is currently selected, always mark as read
+        if (c.visitor_phone === selectedPhone) {
+          c.unread = false;
+          return;
+        }
         const lastRead = readTimestamps[c.visitor_phone];
         if (!lastRead || new Date(c.last_time) > new Date(lastRead)) {
           if (c.last_sender !== 'admin') c.unread = true;
