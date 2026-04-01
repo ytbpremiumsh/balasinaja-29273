@@ -73,7 +73,15 @@ export function CSVUpload({ onContactsUploaded }: CSVUploadProps) {
     setUploading(true);
     try {
       const text = await file.text();
-      const contacts = parseCSV(text);
+      const { contacts, errors } = parseCSV(text);
+
+      if (errors.length > 0) {
+        toast({
+          title: `${errors.length} baris tidak valid`,
+          description: errors.slice(0, 3).join('; '),
+          variant: "destructive",
+        });
+      }
 
       if (contacts.length === 0) {
         throw new Error("Tidak ada kontak yang valid dalam file");
