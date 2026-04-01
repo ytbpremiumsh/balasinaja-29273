@@ -55,10 +55,10 @@ export default function WebChat() {
   }, [messages]);
 
   useEffect(() => {
-    if (!isPremium || !visitorInfo) return;
+    if (!isPremium || !visitorInfo || !sessionId) return;
     pollRef.current = setInterval(() => fetchHistory(), 5000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [isPremium, visitorInfo]);
+  }, [isPremium, visitorInfo, sessionId]);
 
   const callApi = async (body: any) => {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/web-chat`, {
