@@ -24,6 +24,7 @@ import UserManagement from "./pages/admin/UserManagement";
 import PackageManagement from "./pages/admin/PackageManagement";
 import PaymentVerification from "./pages/admin/PaymentVerification";
 import WhatsApp from "./pages/admin/WhatsApp";
+import WAGateway from "./pages/admin/WAGateway";
 import ActivityLogs from "./pages/admin/ActivityLogs";
 import TicketManagement from "./pages/admin/TicketManagement";
 import LandingPageManagement from "./pages/admin/LandingPageManagement";
@@ -71,6 +72,7 @@ const App = () => (
           <Route path="/admin/packages" element={<ProtectedRoute><AdminRoute><PackageManagement /></AdminRoute></ProtectedRoute>} />
           <Route path="/admin/payments" element={<ProtectedRoute><AdminRoute><PaymentVerification /></AdminRoute></ProtectedRoute>} />
           <Route path="/admin/whatsapp" element={<ProtectedRoute><AdminRoute><WhatsApp /></AdminRoute></ProtectedRoute>} />
+          <Route path="/admin/wa-gateway" element={<ProtectedRoute><AdminRoute><WAGateway /></AdminRoute></ProtectedRoute>} />
           <Route path="/admin/tickets" element={<ProtectedRoute><AdminRoute><TicketManagement /></AdminRoute></ProtectedRoute>} />
           <Route path="/admin/logs" element={<ProtectedRoute><AdminRoute><ActivityLogs /></AdminRoute></ProtectedRoute>} />
           <Route path="/admin/landing-page" element={<ProtectedRoute><AdminRoute><LandingPageManagement /></AdminRoute></ProtectedRoute>} />
