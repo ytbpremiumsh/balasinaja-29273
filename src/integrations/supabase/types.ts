@@ -626,6 +626,8 @@ export type Database = {
           email: string
           expire_at: string | null
           id: string
+          mpwa_device_connected: boolean
+          mpwa_device_number: string | null
           name: string | null
           phone: string | null
           plan: string | null
@@ -639,6 +641,8 @@ export type Database = {
           email: string
           expire_at?: string | null
           id?: string
+          mpwa_device_connected?: boolean
+          mpwa_device_number?: string | null
           name?: string | null
           phone?: string | null
           plan?: string | null
@@ -652,6 +656,8 @@ export type Database = {
           email?: string
           expire_at?: string | null
           id?: string
+          mpwa_device_connected?: boolean
+          mpwa_device_number?: string | null
           name?: string | null
           phone?: string | null
           plan?: string | null
@@ -784,6 +790,33 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      wa_gateway_settings: {
+        Row: {
+          active_gateway: string
+          created_at: string
+          id: string
+          mpwa_api_key: string | null
+          mpwa_api_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          active_gateway?: string
+          created_at?: string
+          id?: string
+          mpwa_api_key?: string | null
+          mpwa_api_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active_gateway?: string
+          created_at?: string
+          id?: string
+          mpwa_api_key?: string | null
+          mpwa_api_url?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
