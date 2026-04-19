@@ -157,8 +157,8 @@ serve(async (req) => {
         .replace('{PHONE}', phone)
         .replace('{NAME}', contactName);
 
-      // Send reply via OneSender
-      const sent = await sendOneSenderMessage(supabase, userId, phone, trigger.message_type, replyContent, trigger.url_image || '');
+      // Send reply via active gateway (OneSender or MPWA)
+      const sent = await sendWAMessage(supabase, userId, phone, trigger.message_type, replyContent, trigger.url_image || '');
 
       if (sent) {
         // Update inbox with reply
@@ -259,7 +259,7 @@ serve(async (req) => {
       if (aiReply) {
         console.log('✅ AI generated reply');
         
-        const sent = await sendOneSenderMessage(supabase, userId, phone, 'text', aiReply, '');
+        const sent = await sendWAMessage(supabase, userId, phone, 'text', aiReply, '');
         
         if (sent) {
           await supabase
@@ -528,6 +528,84 @@ async function fetchImageAsBase64(url: string): Promise<string> {
   } catch (error) {
     console.error('❌ Error fetching image:', error);
     return '';
+  }
+}
+
+async function sendWAMessage(supabase: any, userId: string, to: string, type: string, text: string, image: string): Promise<boolean> {
+  // Detect active gateway (global, admin-managed)
+  const { data: gateway } = await supabase
+    .from('wa_gateway_settings')
+    .select('active_gateway, mpwa_api_key, mpwa_api_url')
+    .limit(1)
+    .single();
+
+  const active = gateway?.active_gateway || 'onesender';
+  console.log('🛰️ Active gateway:', active);
+
+  if (active === 'mpwa') {
+    return await sendMPWAMessage(supabase, userId, to, type, text, image, gateway);
+  }
+  return await sendOneSenderMessage(supabase, userId, to, type, text, image);
+}
+
+async function sendMPWAMessage(
+  supabase: any,
+  userId: string,
+  to: string,
+  type: string,
+  text: string,
+  image: string,
+  gateway: { mpwa_api_key?: string; mpwa_api_url?: string } | null,
+): Promise<boolean> {
+  try {
+    if (!gateway?.mpwa_api_key) {
+      console.error('❌ MPWA API key belum dikonfigurasi admin');
+      return false;
+    }
+    // Get user's device number
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('mpwa_device_number')
+      .eq('user_id', userId)
+      .single();
+
+    const sender = profile?.mpwa_device_number;
+    if (!sender) {
+      console.error('❌ Nomor device MPWA user belum diisi');
+      return false;
+    }
+
+    const apiBase = (gateway.mpwa_api_url || 'https://app.ayopintar.com').replace(/\/$/, '');
+    // MPWA only supports text natively in this integration; for image/document we send caption + link inside text
+    let body = text || '';
+    if (image && (type === 'image' || type === 'document')) {
+      body = body ? `${body}\n${image}` : image;
+    }
+
+    const payload = {
+      api_key: gateway.mpwa_api_key,
+      sender,
+      number: to,
+      message: body,
+      footer: 'BalasinAja',
+    };
+
+    console.log('📤 Sending via MPWA, sender:', sender, 'to:', to);
+    const resp = await fetch(`${apiBase}/send-message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (resp.ok && data?.status) {
+      console.log('✅ MPWA message sent');
+      return true;
+    }
+    console.error('❌ MPWA send error:', resp.status, JSON.stringify(data));
+    return false;
+  } catch (err) {
+    console.error('❌ MPWA send exception:', err);
+    return false;
   }
 }
 

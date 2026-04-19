@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, Settings, Copy, Check, Bot } from "lucide-react";
+import { MPWADeviceCard } from "@/components/MPWADeviceCard";
 
 export default function APIConfiguration() {
   const [user, setUser] = useState<any>(null);
@@ -35,6 +36,7 @@ export default function APIConfiguration() {
   const [webhookToken, setWebhookToken] = useState("");
   const [minDelay, setMinDelay] = useState("5");
   const [maxDelay, setMaxDelay] = useState("15");
+  const [activeGateway, setActiveGateway] = useState<"onesender" | "mpwa">("onesender");
 
   useEffect(() => {
     const init = async () => {
@@ -54,9 +56,19 @@ export default function APIConfiguration() {
       }
       
       loadSettings();
+      loadActiveGateway();
     };
     init();
   }, []);
+
+  const loadActiveGateway = async () => {
+    const { data } = await supabase
+      .from("wa_gateway_settings")
+      .select("active_gateway")
+      .limit(1)
+      .maybeSingle();
+    if (data?.active_gateway) setActiveGateway(data.active_gateway as "onesender" | "mpwa");
+  };
 
   const loadSettings = async () => {
     try {
@@ -268,32 +280,45 @@ export default function APIConfiguration() {
           </CardContent>
         </Card>
 
-        {/* ONESENDER CONFIG */}
-        <Card>
-          <CardHeader>
-            <CardTitle>OneSender API</CardTitle>
-            <CardDescription>Masukkan kredensial API dari OneSender</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-2">
-              <Label>OneSender API URL</Label>
-              <Input
-                value={onesenderApiUrl}
-                onChange={(e) => setOnesenderApiUrl(e.target.value)}
-                placeholder="https://api.onesender.id"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>OneSender API Key</Label>
-              <Input
-                type="password"
-                value={onesenderApiKey}
-                onChange={(e) => setOnesenderApiKey(e.target.value)}
-                placeholder="Masukkan API key"
-              />
-            </div>
-          </CardContent>
-        </Card>
+        {/* ACTIVE GATEWAY INFO */}
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+          <span className="font-medium">Gateway aktif: </span>
+          <span className="font-semibold text-primary">
+            {activeGateway === "mpwa" ? "MPWA BalasinAja (Powered by Ayo Pintar)" : "OneSender"}
+          </span>
+          <span className="text-muted-foreground"> — diatur oleh admin.</span>
+        </div>
+
+        {/* GATEWAY-SPECIFIC CONFIG */}
+        {activeGateway === "mpwa" ? (
+          <MPWADeviceCard />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>OneSender API</CardTitle>
+              <CardDescription>Masukkan kredensial API dari OneSender</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2">
+                <Label>OneSender API URL</Label>
+                <Input
+                  value={onesenderApiUrl}
+                  onChange={(e) => setOnesenderApiUrl(e.target.value)}
+                  placeholder="https://api.onesender.id"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>OneSender API Key</Label>
+                <Input
+                  type="password"
+                  value={onesenderApiKey}
+                  onChange={(e) => setOnesenderApiKey(e.target.value)}
+                  placeholder="Masukkan API key"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* AI CONFIG */}
         <Card>
