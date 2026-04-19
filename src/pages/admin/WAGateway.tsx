@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, Radio } from "lucide-react";
+import { MPWADeviceCard } from "@/components/MPWADeviceCard";
 
 export default function WAGateway() {
   const { toast } = useToast();
@@ -155,6 +156,14 @@ export default function WAGateway() {
             {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Menyimpan...</> : <><Save className="w-4 h-4 mr-2" />Simpan</>}
           </Button>
         </div>
+
+        {activeGateway === "mpwa" && (
+          <MPWADeviceCard
+            scope="admin"
+            title="Device MPWA Admin (Sender Sistem)"
+            description="Nomor WhatsApp ini akan dipakai sistem untuk mengirim pesan welcome registrasi, notifikasi pembayaran, dan pesan sistem lainnya. Pastikan API Key sudah tersimpan sebelum scan QR."
+          />
+        )}
       </div>
     </Layout>
   );
