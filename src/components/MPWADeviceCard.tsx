@@ -7,7 +7,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, QrCode, CheckCircle2, RefreshCw } from "lucide-react";
 
-export const MPWADeviceCard = () => {
+interface MPWADeviceCardProps {
+  scope?: "user" | "admin";
+  title?: string;
+  description?: string;
+}
+
+export const MPWADeviceCard = ({
+  scope = "user",
+  title,
+  description,
+}: MPWADeviceCardProps = {}) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -17,21 +27,36 @@ export const MPWADeviceCard = () => {
   const [statusMsg, setStatusMsg] = useState("");
 
   useEffect(() => {
-    loadProfile();
-  }, []);
+    loadDevice();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope]);
 
-  const loadProfile = async () => {
+  const loadDevice = async () => {
+    setLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const { data } = await supabase
-        .from("profiles")
-        .select("mpwa_device_number, mpwa_device_connected")
-        .eq("user_id", session.user.id)
-        .single();
-      if (data) {
-        setDeviceNumber(data.mpwa_device_number || "");
-        setConnected(!!data.mpwa_device_connected);
+
+      if (scope === "admin") {
+        const { data } = await supabase
+          .from("wa_gateway_settings")
+          .select("mpwa_admin_device_number, mpwa_admin_device_connected")
+          .limit(1)
+          .maybeSingle();
+        if (data) {
+          setDeviceNumber(data.mpwa_admin_device_number || "");
+          setConnected(!!data.mpwa_admin_device_connected);
+        }
+      } else {
+        const { data } = await supabase
+          .from("profiles")
+          .select("mpwa_device_number, mpwa_device_connected")
+          .eq("user_id", session.user.id)
+          .single();
+        if (data) {
+          setDeviceNumber(data.mpwa_device_number || "");
+          setConnected(!!data.mpwa_device_connected);
+        }
       }
     } finally {
       setLoading(false);
@@ -40,7 +65,11 @@ export const MPWADeviceCard = () => {
 
   const generateQR = async () => {
     if (!/^\d{8,20}$/.test(deviceNumber)) {
-      toast({ title: "Nomor tidak valid", description: "Masukkan nomor HP angka saja, contoh 628123456789", variant: "destructive" });
+      toast({
+        title: "Nomor tidak valid",
+        description: "Masukkan nomor HP angka saja, contoh 628123456789",
+        variant: "destructive",
+      });
       return;
     }
     setGenerating(true);
@@ -48,7 +77,7 @@ export const MPWADeviceCard = () => {
     setStatusMsg("");
     try {
       const { data, error } = await supabase.functions.invoke("mpwa-generate-qr", {
-        body: { device: deviceNumber },
+        body: { device: deviceNumber, scope },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
@@ -61,9 +90,19 @@ export const MPWADeviceCard = () => {
         toast({ title: "Sudah terhubung", description: "Device WhatsApp Anda sudah aktif" });
       } else if (res.qrcode) {
         toast({ title: "Scan QR", description: "Buka WhatsApp → Linked Devices → Scan QR" });
+      } else {
+        toast({
+          title: "QR tidak tersedia",
+          description: res.message || "Coba lagi dalam beberapa detik",
+          variant: "destructive",
+        });
       }
     } catch (err: any) {
-      toast({ title: "Error", description: err?.message || "Gagal generate QR", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: err?.message || "Gagal generate QR",
+        variant: "destructive",
+      });
     } finally {
       setGenerating(false);
     }
@@ -84,10 +123,13 @@ export const MPWADeviceCard = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <QrCode className="w-5 h-5" />
-          MPWA WhatsApp Device
+          {title || (scope === "admin" ? "Device MPWA Admin (Sender Sistem)" : "MPWA WhatsApp Device")}
         </CardTitle>
         <CardDescription>
-          Sistem menggunakan MPWA BalasinAja (Powered by Ayo Pintar). Cukup masukkan nomor HP Anda dan scan QR — tidak perlu API key.
+          {description ||
+            (scope === "admin"
+              ? "Device global yang dipakai sistem untuk mengirim notifikasi (welcome, payment, dll)."
+              : "Sistem menggunakan MPWA BalasinAja (Powered by Ayo Pintar). Cukup masukkan nomor HP Anda dan scan QR — tidak perlu API key.")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -99,7 +141,9 @@ export const MPWADeviceCard = () => {
             placeholder="628123456789"
             inputMode="numeric"
           />
-          <p className="text-xs text-muted-foreground">Contoh: 628123456789 (gunakan kode negara, tanpa + atau spasi).</p>
+          <p className="text-xs text-muted-foreground">
+            Contoh: 628123456789 (gunakan kode negara, tanpa + atau spasi).
+          </p>
         </div>
 
         {connected && (
@@ -111,17 +155,28 @@ export const MPWADeviceCard = () => {
 
         <Button onClick={generateQR} disabled={generating}>
           {generating ? (
-            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Memproses...</>
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Memproses...
+            </>
           ) : (
-            <><RefreshCw className="w-4 h-4 mr-2" />{connected ? "Hubungkan Ulang" : "Generate QR"}</>
+            <>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              {connected ? "Cek Status / Hubungkan Ulang" : "Generate QR"}
+            </>
           )}
         </Button>
 
         {qrcode && (
           <div className="flex flex-col items-center gap-2 rounded-lg border bg-muted/30 p-4">
-            <img src={qrcode} alt="QR Code MPWA" className="w-64 h-64 object-contain bg-white rounded" />
+            <img
+              src={qrcode}
+              alt="QR Code MPWA"
+              className="w-64 h-64 object-contain bg-white rounded"
+            />
             <p className="text-sm text-muted-foreground text-center">
               Buka WhatsApp di HP Anda → ⋮ → <b>Linked Devices</b> → <b>Link a Device</b> → scan QR di atas.
+              Setelah scan, klik tombol <b>Cek Status</b> untuk konfirmasi koneksi.
             </p>
           </div>
         )}

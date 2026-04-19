@@ -798,6 +798,8 @@ export type Database = {
           active_gateway: string
           created_at: string
           id: string
+          mpwa_admin_device_connected: boolean
+          mpwa_admin_device_number: string | null
           mpwa_api_key: string | null
           mpwa_api_url: string | null
           updated_at: string
@@ -806,6 +808,8 @@ export type Database = {
           active_gateway?: string
           created_at?: string
           id?: string
+          mpwa_admin_device_connected?: boolean
+          mpwa_admin_device_number?: string | null
           mpwa_api_key?: string | null
           mpwa_api_url?: string | null
           updated_at?: string
@@ -814,6 +818,8 @@ export type Database = {
           active_gateway?: string
           created_at?: string
           id?: string
+          mpwa_admin_device_connected?: boolean
+          mpwa_admin_device_number?: string | null
           mpwa_api_key?: string | null
           mpwa_api_url?: string | null
           updated_at?: string

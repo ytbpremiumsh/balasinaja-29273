@@ -65,82 +65,87 @@ serve(async (req) => {
       );
     }
 
-    // Get API settings (either from user or from admin settings)
-    let apiUrl = '';
-    let apiKey = '';
+    // Detect active gateway
+    const { data: gateway } = await supabaseAdmin
+      .from('wa_gateway_settings')
+      .select('active_gateway, mpwa_api_key, mpwa_api_url, mpwa_admin_device_number')
+      .limit(1)
+      .maybeSingle();
 
-    if (userId) {
-      // Get user's settings
-      const { data: settings } = await supabaseAdmin
-        .from('settings')
-        .select('key, value')
-        .eq('user_id', userId)
-        .in('key', ['onesender_api_url', 'onesender_api_key']);
+    const activeGateway = gateway?.active_gateway || 'onesender';
+    console.log('🛰️ Active gateway:', activeGateway);
 
-      settings?.forEach(setting => {
-        if (setting.key === 'onesender_api_url') apiUrl = setting.value;
-        if (setting.key === 'onesender_api_key') apiKey = setting.value;
-      });
-    }
+    let response: Response;
 
-    // If no user settings or empty, try to get from first available user settings
-    if (!apiUrl || !apiKey) {
-      const { data: defaultSettings } = await supabaseAdmin
-        .from('settings')
-        .select('key, value')
-        .in('key', ['onesender_api_url', 'onesender_api_key'])
-        .limit(2);
-
-      defaultSettings?.forEach(setting => {
-        if (!apiUrl && setting.key === 'onesender_api_url') apiUrl = setting.value;
-        if (!apiKey && setting.key === 'onesender_api_key') apiKey = setting.value;
-      });
-    }
-
-    if (!apiUrl || !apiKey) {
-      console.error('API settings missing - apiUrl:', !!apiUrl, 'apiKey:', !!apiKey);
-      return new Response(
-        JSON.stringify({ 
-          error: 'API settings not configured. Please set OneSender API credentials in Settings page.' 
+    if (activeGateway === 'mpwa') {
+      if (!gateway?.mpwa_api_key || !gateway?.mpwa_admin_device_number) {
+        return new Response(
+          JSON.stringify({ error: 'MPWA admin device belum dikonfigurasi. Buka Admin → WA Gateway dan scan QR device admin.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const apiBase = (gateway.mpwa_api_url || 'https://app.ayopintar.com').replace(/\/$/, '');
+      console.log('📤 Sending via MPWA, sender:', gateway.mpwa_admin_device_number, 'to:', phone);
+      response = await fetch(`${apiBase}/send-message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: gateway.mpwa_api_key,
+          sender: gateway.mpwa_admin_device_number,
+          number: phone,
+          message,
+          footer: 'BalasinAja',
         }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      });
+    } else {
+      // OneSender path
+      let apiUrl = '';
+      let apiKey = '';
+
+      if (userId) {
+        const { data: settings } = await supabaseAdmin
+          .from('settings')
+          .select('key, value')
+          .eq('user_id', userId)
+          .in('key', ['onesender_api_url', 'onesender_api_key']);
+        settings?.forEach(setting => {
+          if (setting.key === 'onesender_api_url') apiUrl = setting.value;
+          if (setting.key === 'onesender_api_key') apiKey = setting.value;
+        });
+      }
+
+      if (!apiUrl || !apiKey) {
+        const { data: defaultSettings } = await supabaseAdmin
+          .from('settings')
+          .select('key, value')
+          .in('key', ['onesender_api_url', 'onesender_api_key'])
+          .limit(2);
+        defaultSettings?.forEach(setting => {
+          if (!apiUrl && setting.key === 'onesender_api_url') apiUrl = setting.value;
+          if (!apiKey && setting.key === 'onesender_api_key') apiKey = setting.value;
+        });
+      }
+
+      if (!apiUrl || !apiKey) {
+        return new Response(
+          JSON.stringify({ error: 'OneSender belum dikonfigurasi.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('Sending via OneSender to:', phone);
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({ to: phone, type: 'text', text: { body: message }, priority: 10 }),
+      });
     }
-
-    console.log('Sending WhatsApp notification to:', phone);
-
-    // Prepare request body for OneSender API
-    const requestBody = {
-      to: phone,
-      type: 'text',
-      text: {
-        body: message
-      },
-      priority: 10
-    };
-
-    console.log('OneSender request body:', JSON.stringify(requestBody));
-
-    // Send WhatsApp message using OneSender API
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify(requestBody)
-    });
 
     const responseText = await response.text();
-    console.log('OneSender API response status:', response.status);
-    console.log('OneSender API response:', responseText);
+    console.log('Gateway response status:', response.status, responseText.slice(0, 200));
 
-    let result;
-    try {
-      result = JSON.parse(responseText);
-    } catch (e) {
-      result = { raw: responseText };
-    }
+    let result: any;
+    try { result = JSON.parse(responseText); } catch { result = { raw: responseText }; }
 
     if (!response.ok) {
       throw new Error(`WhatsApp API error: ${JSON.stringify(result)}`);

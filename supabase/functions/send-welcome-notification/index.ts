@@ -100,37 +100,17 @@ serve(async (req) => {
     const adminUserId = adminRole.user_id;
     console.log('Using admin user ID:', adminUserId);
 
-    // Get API settings from admin's settings
-    const { data: settings } = await supabaseClient
-      .from('settings')
-      .select('key, value')
-      .eq('user_id', adminUserId)
-      .in('key', ['onesender_api_url', 'onesender_api_key']);
+    // Detect active gateway
+    const { data: gateway } = await supabaseClient
+      .from('wa_gateway_settings')
+      .select('active_gateway, mpwa_api_key, mpwa_api_url, mpwa_admin_device_number')
+      .limit(1)
+      .maybeSingle();
 
-    let apiUrl = '';
-    let apiKey = '';
+    const activeGateway = gateway?.active_gateway || 'onesender';
+    console.log('🛰️ Active gateway:', activeGateway);
 
-    settings?.forEach(setting => {
-      if (setting.key === 'onesender_api_url') apiUrl = setting.value;
-      if (setting.key === 'onesender_api_key') apiKey = setting.value;
-    });
-
-    // Fallback to global API key if not set
-    if (!apiKey) {
-      apiKey = Deno.env.get('ONESENDER_API_KEY') || '';
-    }
-
-    if (!apiUrl || !apiKey) {
-      console.error('Admin API settings not configured');
-      return new Response(
-        JSON.stringify({ error: 'Admin API settings not configured. Please configure OneSender in admin settings.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Admin API settings loaded successfully');
-
-    // Get welcome message template
+    // Get welcome template
     const { data: template } = await supabaseClient
       .from('whatsapp_templates')
       .select('message_template')
@@ -138,14 +118,10 @@ serve(async (req) => {
       .eq('is_active', true)
       .single();
 
-    // Format expiration date
     const expiryDate = new Date(expire_at).toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
+      day: 'numeric', month: 'long', year: 'numeric'
     });
 
-    // Use template or default message
     let message = template?.message_template || `Halo {NAME} 👋
 
 Selamat datang di BalasinAja! 
@@ -156,28 +132,64 @@ Silakan login dan mulai gunakan layanan kami untuk mengelola pesan WhatsApp Anda
 
 Terima kasih telah bergabung! 🎉`;
 
-    // Replace placeholders
     message = message
       .replace(/{NAME}/g, name || 'User')
       .replace(/{EXPIRE_DATE}/g, expiryDate);
 
     console.log('Sending WhatsApp message to:', phone);
 
-    // Send WhatsApp message
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        phone: phone,
-        message: message,
-        type: 'text'
-      })
-    });
+    let response: Response;
 
-    const result = await response.json();
+    if (activeGateway === 'mpwa') {
+      if (!gateway?.mpwa_api_key || !gateway?.mpwa_admin_device_number) {
+        return new Response(
+          JSON.stringify({ error: 'MPWA admin device belum dikonfigurasi. Buka Admin → WA Gateway dan scan QR device admin.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const apiBase = (gateway.mpwa_api_url || 'https://app.ayopintar.com').replace(/\/$/, '');
+      response = await fetch(`${apiBase}/send-message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: gateway.mpwa_api_key,
+          sender: gateway.mpwa_admin_device_number,
+          number: phone,
+          message,
+          footer: 'BalasinAja',
+        }),
+      });
+    } else {
+      // OneSender path: use admin user settings
+      const { data: settings } = await supabaseClient
+        .from('settings')
+        .select('key, value')
+        .eq('user_id', adminUserId)
+        .in('key', ['onesender_api_url', 'onesender_api_key']);
+
+      let apiUrl = '';
+      let apiKey = '';
+      settings?.forEach(setting => {
+        if (setting.key === 'onesender_api_url') apiUrl = setting.value;
+        if (setting.key === 'onesender_api_key') apiKey = setting.value;
+      });
+      if (!apiKey) apiKey = Deno.env.get('ONESENDER_API_KEY') || '';
+
+      if (!apiUrl || !apiKey) {
+        return new Response(
+          JSON.stringify({ error: 'OneSender admin belum dikonfigurasi.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({ to: phone, type: 'text', text: { body: message }, priority: 10 }),
+      });
+    }
+
+    const result = await response.json().catch(() => ({}));
     console.log('WhatsApp API response:', result);
 
     if (!response.ok) {
