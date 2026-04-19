@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, Settings, Copy, Check, Bot } from "lucide-react";
+import { MPWADeviceCard } from "@/components/MPWADeviceCard";
 
 export default function APIConfiguration() {
   const [user, setUser] = useState<any>(null);
@@ -35,6 +36,7 @@ export default function APIConfiguration() {
   const [webhookToken, setWebhookToken] = useState("");
   const [minDelay, setMinDelay] = useState("5");
   const [maxDelay, setMaxDelay] = useState("15");
+  const [activeGateway, setActiveGateway] = useState<"onesender" | "mpwa">("onesender");
 
   useEffect(() => {
     const init = async () => {
@@ -54,9 +56,19 @@ export default function APIConfiguration() {
       }
       
       loadSettings();
+      loadActiveGateway();
     };
     init();
   }, []);
+
+  const loadActiveGateway = async () => {
+    const { data } = await supabase
+      .from("wa_gateway_settings")
+      .select("active_gateway")
+      .limit(1)
+      .maybeSingle();
+    if (data?.active_gateway) setActiveGateway(data.active_gateway as "onesender" | "mpwa");
+  };
 
   const loadSettings = async () => {
     try {
