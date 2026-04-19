@@ -66,7 +66,17 @@ const handler = async (req: Request): Promise<Response> => {
       scheduled: scheduled_at,
     });
 
-    // Get user settings - WAJIB dari user sendiri
+    // Detect active gateway (global, admin-managed)
+    const { data: gateway } = await supabase
+      .from("wa_gateway_settings")
+      .select("active_gateway, mpwa_api_key, mpwa_api_url")
+      .limit(1)
+      .maybeSingle();
+
+    const activeGateway = gateway?.active_gateway || "onesender";
+    console.log("🛰️ Active gateway:", activeGateway);
+
+    // Get user settings
     const { data: settings, error: settingsError } = await supabase
       .from("settings")
       .select("*")
@@ -82,8 +92,21 @@ const handler = async (req: Request): Promise<Response> => {
     const apiUrl = settingsMap.onesender_api_url;
     const apiKey = settingsMap.onesender_api_key;
 
-    if (!apiUrl || !apiKey) {
-      throw new Error("OneSender API belum dikonfigurasi. Silakan set API URL dan API Key di halaman Settings Anda.");
+    // Get user's MPWA device number (per-user)
+    const { data: profileForBroadcast } = await supabase
+      .from("profiles")
+      .select("mpwa_device_number")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const mpwaSender = profileForBroadcast?.mpwa_device_number || "";
+    const mpwaApiKey = gateway?.mpwa_api_key || "";
+    const mpwaApiBase = (gateway?.mpwa_api_url || "https://app.ayopintar.com").replace(/\/$/, "");
+
+    if (activeGateway === "onesender" && (!apiUrl || !apiKey)) {
+      throw new Error("OneSender API belum dikonfigurasi. Silakan set API URL dan API Key di Konfigurasi API.");
+    }
+    if (activeGateway === "mpwa" && (!mpwaApiKey || !mpwaSender)) {
+      throw new Error("MPWA belum siap: pastikan admin sudah set API Key MPWA dan Anda sudah scan QR device di Konfigurasi API.");
     }
 
     // Create broadcast log
@@ -184,86 +207,56 @@ const handler = async (req: Request): Promise<Response> => {
           .update({ status: "processing" })
           .eq("id", queueItem.id);
 
-        // Prepare request body for OneSender API
-        let apiEndpoint = apiUrl;
-        let requestBody: any = {};
+        // Build request based on active gateway
+        let apiEndpoint: string;
+        let requestBody: any;
+        let requestHeaders: Record<string, string>;
 
-        // Determine API endpoint and body based on media type
-        if (media_type === "text") {
-          // Text message - use standard message endpoint
-          requestBody = {
-            to: recipient.phone,
-            text: {
-              body: queueItem.message
-            }
-          };
-        } else if (media_type === "image" && media_url) {
-          // Image message - use media endpoint with correct format
-          // OneSender expects: POST to media endpoint with image data
-          apiEndpoint = apiUrl.replace("/message/send", "/media/send");
-          if (!apiEndpoint.includes("/media")) {
-            apiEndpoint = apiUrl.replace("/api/v1/message/send", "/api/v1/media/send");
+        if (activeGateway === "mpwa") {
+          // MPWA: text only natively; for media, append URL inline to message
+          let body = queueItem.message || "";
+          if (media_url && (media_type === "image" || media_type === "document" || media_type === "video")) {
+            body = body ? `${body}\n${media_url}` : media_url;
           }
-          
+          apiEndpoint = `${mpwaApiBase}/send-message`;
+          requestHeaders = { "Content-Type": "application/json" };
           requestBody = {
-            to: recipient.phone,
-            type: "image",
-            image: {
-              url: media_url,
-              caption: queueItem.message || ""
-            }
+            api_key: mpwaApiKey,
+            sender: mpwaSender,
+            number: recipient.phone,
+            message: body,
+            footer: "BalasinAja",
           };
-        } else if (media_type === "video" && media_url) {
-          // Video message
-          apiEndpoint = apiUrl.replace("/message/send", "/media/send");
-          if (!apiEndpoint.includes("/media")) {
-            apiEndpoint = apiUrl.replace("/api/v1/message/send", "/api/v1/media/send");
+        } else {
+          // OneSender (existing logic)
+          apiEndpoint = apiUrl;
+          if (media_type === "text") {
+            requestBody = { to: recipient.phone, text: { body: queueItem.message } };
+          } else if (media_type === "image" && media_url) {
+            apiEndpoint = apiUrl.replace("/message/send", "/media/send");
+            if (!apiEndpoint.includes("/media")) apiEndpoint = apiUrl.replace("/api/v1/message/send", "/api/v1/media/send");
+            requestBody = { to: recipient.phone, type: "image", image: { url: media_url, caption: queueItem.message || "" } };
+          } else if (media_type === "video" && media_url) {
+            apiEndpoint = apiUrl.replace("/message/send", "/media/send");
+            if (!apiEndpoint.includes("/media")) apiEndpoint = apiUrl.replace("/api/v1/message/send", "/api/v1/media/send");
+            requestBody = { to: recipient.phone, type: "video", video: { url: media_url, caption: queueItem.message || "" } };
+          } else if (media_type === "document" && media_url) {
+            apiEndpoint = apiUrl.replace("/message/send", "/media/send");
+            if (!apiEndpoint.includes("/media")) apiEndpoint = apiUrl.replace("/api/v1/message/send", "/api/v1/media/send");
+            const urlParts = media_url.split('/');
+            const filename = urlParts[urlParts.length - 1] || "document.pdf";
+            requestBody = { to: recipient.phone, type: "document", document: { url: media_url, filename, caption: queueItem.message || "" } };
+          } else {
+            requestBody = { to: recipient.phone, text: { body: queueItem.message } };
           }
-          
-          requestBody = {
-            to: recipient.phone,
-            type: "video",
-            video: {
-              url: media_url,
-              caption: queueItem.message || ""
-            }
-          };
-        } else if (media_type === "document" && media_url) {
-          // Document message
-          apiEndpoint = apiUrl.replace("/message/send", "/media/send");
-          if (!apiEndpoint.includes("/media")) {
-            apiEndpoint = apiUrl.replace("/api/v1/message/send", "/api/v1/media/send");
-          }
-          
-          // Extract filename from URL or use default
-          const urlParts = media_url.split('/');
-          const filename = urlParts[urlParts.length - 1] || "document.pdf";
-          
-          requestBody = {
-            to: recipient.phone,
-            type: "document",
-            document: {
-              url: media_url,
-              filename: filename,
-              caption: queueItem.message || ""
-            }
-          };
+          requestHeaders = { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` };
         }
 
-        console.log("📤 Sending to OneSender API:", { 
-          url: apiEndpoint, 
-          phone: recipient.phone,
-          messageType: media_type,
-          hasMedia: !!media_url,
-          body: JSON.stringify(requestBody).substring(0, 200)
-        });
+        console.log("📤 Sending via", activeGateway, "→", recipient.phone);
 
         const response = await fetch(apiEndpoint, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey}`,
-          },
+          headers: requestHeaders,
           body: JSON.stringify(requestBody),
         });
 
@@ -271,36 +264,26 @@ const handler = async (req: Request): Promise<Response> => {
         console.log(`📨 Response for ${recipient.phone}:`, response.status, responseText.substring(0, 200));
 
         if (response.ok) {
-          // Check if response indicates success
           let isSuccess = true;
           try {
             const responseJson = JSON.parse(responseText);
-            // Some APIs return success:false in body even with 200 status
-            if (responseJson.success === false || responseJson.error) {
-              isSuccess = false;
-            }
-          } catch {
-            // If response is not JSON, assume success based on status code
-          }
+            // OneSender: success:false / error  | MPWA: status:false
+            if (responseJson.success === false || responseJson.error) isSuccess = false;
+            if (activeGateway === "mpwa" && responseJson.status === false) isSuccess = false;
+          } catch {}
 
           if (isSuccess) {
             successCount++;
             await supabase
               .from("broadcast_queue")
-              .update({ 
-                status: "sent", 
-                sent_at: new Date().toISOString() 
-              })
+              .update({ status: "sent", sent_at: new Date().toISOString() })
               .eq("id", queueItem.id);
             console.log(`✅ Message sent to ${recipient.phone}`);
           } else {
             failCount++;
             await supabase
               .from("broadcast_queue")
-              .update({ 
-                status: "failed",
-                error_message: responseText.substring(0, 500),
-              })
+              .update({ status: "failed", error_message: responseText.substring(0, 500) })
               .eq("id", queueItem.id);
             console.error(`❌ API returned error for ${recipient.phone}:`, responseText);
           }
