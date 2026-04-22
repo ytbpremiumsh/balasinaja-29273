@@ -1,17 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, QrCode, CheckCircle2, RefreshCw } from "lucide-react";
+import { Loader2, QrCode, CheckCircle2, RefreshCw, Timer } from "lucide-react";
 
 interface MPWADeviceCardProps {
   scope?: "user" | "admin";
   title?: string;
   description?: string;
 }
+
+const QR_LIFETIME_SECONDS = 30; // auto-refresh QR every 30s
+const POLL_INTERVAL_MS = 4000; // check connection every 4s
 
 export const MPWADeviceCard = ({
   scope = "user",
@@ -25,11 +28,38 @@ export const MPWADeviceCard = ({
   const [qrcode, setQrcode] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
+  const [secondsLeft, setSecondsLeft] = useState(0);
+
+  const pollRef = useRef<number | null>(null);
+  const countdownRef = useRef<number | null>(null);
+  const generatingRef = useRef(false);
+  const qrcodeRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    qrcodeRef.current = qrcode;
+  }, [qrcode]);
 
   useEffect(() => {
     loadDevice();
+    return () => {
+      stopPolling();
+      stopCountdown();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope]);
+
+  const stopPolling = () => {
+    if (pollRef.current) {
+      window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+  const stopCountdown = () => {
+    if (countdownRef.current) {
+      window.clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
+  };
 
   const loadDevice = async () => {
     setLoading(true);
@@ -63,6 +93,84 @@ export const MPWADeviceCard = ({
     }
   };
 
+  const callGenerate = async (silent = false) => {
+    if (generatingRef.current) return null;
+    generatingRef.current = true;
+    if (!silent) setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("mpwa-generate-qr", {
+        body: { device: deviceNumber, scope },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data as { qrcode: string | null; message: string; connected: boolean };
+    } catch (err: any) {
+      if (!silent) {
+        toast({
+          title: "Error",
+          description: err?.message || "Gagal generate QR",
+          variant: "destructive",
+        });
+      }
+      return null;
+    } finally {
+      generatingRef.current = false;
+      if (!silent) setGenerating(false);
+    }
+  };
+
+  const refreshQR = async () => {
+    const res = await callGenerate(true);
+    if (!res) return;
+    if (res.connected) {
+      setConnected(true);
+      setQrcode(null);
+      stopPolling();
+      stopCountdown();
+      toast({
+        title: "✅ Berhasil terhubung!",
+        description: "Device WhatsApp Anda sudah aktif.",
+      });
+      return;
+    }
+    if (res.qrcode) setQrcode(res.qrcode);
+  };
+
+  const startCountdown = () => {
+    stopCountdown();
+    setSecondsLeft(QR_LIFETIME_SECONDS);
+    countdownRef.current = window.setInterval(() => {
+      setSecondsLeft((s) => {
+        if (s <= 1) {
+          refreshQR();
+          return QR_LIFETIME_SECONDS;
+        }
+        return s - 1;
+      });
+    }, 1000);
+  };
+
+  const startPolling = () => {
+    stopPolling();
+    pollRef.current = window.setInterval(async () => {
+      const res = await callGenerate(true);
+      if (!res) return;
+      if (res.connected) {
+        setConnected(true);
+        setQrcode(null);
+        setStatusMsg(res.message || "Device terhubung");
+        stopPolling();
+        stopCountdown();
+        toast({
+          title: "✅ Berhasil terhubung!",
+          description: "Device WhatsApp Anda sudah aktif dan siap mengirim pesan.",
+        });
+      } else if (res.qrcode && res.qrcode !== qrcodeRef.current) {
+        setQrcode(res.qrcode);
+      }
+    }, POLL_INTERVAL_MS);
+  };
+
   const generateQR = async () => {
     if (!/^\d{8,20}$/.test(deviceNumber)) {
       toast({
@@ -72,39 +180,33 @@ export const MPWADeviceCard = ({
       });
       return;
     }
-    setGenerating(true);
     setQrcode(null);
     setStatusMsg("");
-    try {
-      const { data, error } = await supabase.functions.invoke("mpwa-generate-qr", {
-        body: { device: deviceNumber, scope },
-      });
-      if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+    setConnected(false);
+    stopPolling();
+    stopCountdown();
 
-      const res = data as { qrcode: string | null; message: string; connected: boolean };
+    const res = await callGenerate(false);
+    if (!res) return;
+
+    setStatusMsg(res.message || "");
+    setConnected(res.connected);
+
+    if (res.connected) {
+      toast({ title: "✅ Sudah terhubung", description: "Device WhatsApp Anda sudah aktif." });
+      return;
+    }
+    if (res.qrcode) {
       setQrcode(res.qrcode);
-      setStatusMsg(res.message || "");
-      setConnected(res.connected);
-      if (res.connected) {
-        toast({ title: "Sudah terhubung", description: "Device WhatsApp Anda sudah aktif" });
-      } else if (res.qrcode) {
-        toast({ title: "Scan QR", description: "Buka WhatsApp → Linked Devices → Scan QR" });
-      } else {
-        toast({
-          title: "QR tidak tersedia",
-          description: res.message || "Coba lagi dalam beberapa detik",
-          variant: "destructive",
-        });
-      }
-    } catch (err: any) {
+      toast({ title: "Scan QR", description: "Buka WhatsApp → Linked Devices → Scan QR" });
+      startCountdown();
+      startPolling();
+    } else {
       toast({
-        title: "Error",
-        description: err?.message || "Gagal generate QR",
+        title: "QR tidak tersedia",
+        description: res.message || "Coba lagi dalam beberapa detik",
         variant: "destructive",
       });
-    } finally {
-      setGenerating(false);
     }
   };
 
@@ -140,6 +242,7 @@ export const MPWADeviceCard = ({
             onChange={(e) => setDeviceNumber(e.target.value.replace(/\D/g, ""))}
             placeholder="628123456789"
             inputMode="numeric"
+            disabled={connected}
           />
           <p className="text-xs text-muted-foreground">
             Contoh: 628123456789 (gunakan kode negara, tanpa + atau spasi).
@@ -147,9 +250,12 @@ export const MPWADeviceCard = ({
         </div>
 
         {connected && (
-          <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-green-700 text-sm">
-            <CheckCircle2 className="w-4 h-4" />
-            Device terhubung dan siap mengirim pesan.
+          <div className="flex items-center gap-3 rounded-lg border-2 border-green-500 bg-green-50 p-4 text-green-800">
+            <CheckCircle2 className="w-6 h-6 flex-shrink-0" />
+            <div>
+              <p className="font-semibold">Device berhasil terhubung!</p>
+              <p className="text-sm">WhatsApp Anda sudah aktif dan siap mengirim pesan otomatis.</p>
+            </div>
           </div>
         )}
 
@@ -162,26 +268,33 @@ export const MPWADeviceCard = ({
           ) : (
             <>
               <RefreshCw className="w-4 h-4 mr-2" />
-              {connected ? "Cek Status / Hubungkan Ulang" : "Generate QR"}
+              {connected ? "Hubungkan Ulang" : "Generate QR"}
             </>
           )}
         </Button>
 
-        {qrcode && (
-          <div className="flex flex-col items-center gap-2 rounded-lg border bg-muted/30 p-4">
+        {qrcode && !connected && (
+          <div className="flex flex-col items-center gap-3 rounded-lg border bg-muted/30 p-4">
             <img
               src={qrcode}
               alt="QR Code MPWA"
               className="w-64 h-64 object-contain bg-white rounded"
             />
+            <div className="flex items-center gap-2 text-sm font-medium text-primary">
+              <Timer className="w-4 h-4" />
+              QR diperbarui dalam <span className="tabular-nums">{secondsLeft}</span> detik
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Menunggu scan... (deteksi koneksi otomatis)
+            </div>
             <p className="text-sm text-muted-foreground text-center">
               Buka WhatsApp di HP Anda → ⋮ → <b>Linked Devices</b> → <b>Link a Device</b> → scan QR di atas.
-              Setelah scan, klik tombol <b>Cek Status</b> untuk konfirmasi koneksi.
             </p>
           </div>
         )}
 
-        {statusMsg && !qrcode && (
+        {statusMsg && !qrcode && !connected && (
           <p className="text-sm text-muted-foreground">{statusMsg}</p>
         )}
       </CardContent>
