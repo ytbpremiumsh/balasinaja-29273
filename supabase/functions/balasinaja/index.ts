@@ -194,7 +194,7 @@ serve(async (req) => {
     if (aiReplyEnabled && (messageType === 'text' || messageType === 'image')) {
       console.log('🤖 Attempting AI reply...');
       
-      // Get delay and typing indicator settings
+      // Get delay & typing indicator settings
       const { data: delaySettings } = await supabase
         .from('settings')
         .select('key, value')
@@ -207,7 +207,7 @@ serve(async (req) => {
       let onesenderApiUrl = '';
       let onesenderApiKey = '';
 
-      delaySettings?.forEach(setting => {
+      delaySettings?.forEach((setting: any) => {
         if (setting.key === 'min_delay_seconds') minDelay = parseInt(setting.value) || 5;
         if (setting.key === 'max_delay_seconds') maxDelay = parseInt(setting.value) || 15;
         if (setting.key === 'typing_indicator_enabled') typingEnabled = setting.value !== 'false';
@@ -215,37 +215,37 @@ serve(async (req) => {
         if (setting.key === 'onesender_api_key') onesenderApiKey = setting.value || '';
       });
 
-      // Calculate random delay
       const randomDelay = Math.floor(Math.random() * (maxDelay - minDelay + 1) + minDelay);
-      console.log(`⏱️ Waiting ${randomDelay} seconds before replying (anti-spam)...`);
-      
-      // Send typing indicator if enabled
-      if (typingEnabled && onesenderApiUrl && onesenderApiKey) {
+      console.log(`⏱️ Waiting ${randomDelay}s before replying (anti-spam)...`);
+
+      // Detect active gateway for typing indicator
+      const { data: activeGw } = await supabase
+        .from('wa_gateway_settings')
+        .select('active_gateway')
+        .limit(1)
+        .single();
+      const activeGateway = activeGw?.active_gateway || 'onesender';
+      console.log('🛰️ Active gateway for reply:', activeGateway);
+
+      // Typing indicator only works on OneSender; MPWA tidak support native, lewati
+      if (typingEnabled && activeGateway === 'onesender' && onesenderApiUrl && onesenderApiKey) {
         try {
-          console.log(`⌨️ Sending typing indicator to ${phone}...`);
-          const typingPayload = {
-            to: phone,
-            type: 'typing',
-            typing: { status: 'composing' }
-          };
-          
+          console.log(`⌨️ Sending typing indicator (OneSender) to ${phone}...`);
           const typingResponse = await fetch(onesenderApiUrl, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${onesenderApiKey}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify(typingPayload)
+            body: JSON.stringify({ to: phone, type: 'typing', typing: { status: 'composing' } })
           });
-          
-          if (typingResponse.ok) {
-            console.log('✅ Typing indicator sent successfully');
-          } else {
-            console.log('⚠️ Failed to send typing indicator:', await typingResponse.text());
-          }
+          if (typingResponse.ok) console.log('✅ Typing indicator sent');
+          else console.log('⚠️ Typing indicator failed:', await typingResponse.text());
         } catch (err) {
-          console.log('⚠️ Error sending typing indicator:', err);
+          console.log('⚠️ Typing indicator error:', err);
         }
+      } else if (activeGateway === 'mpwa') {
+        console.log('ℹ️ MPWA: typing indicator skipped (not natively supported)');
       }
       
       // Wait for the delay
