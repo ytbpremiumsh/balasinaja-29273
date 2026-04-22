@@ -50,7 +50,7 @@ export default function WAGateway() {
       const payload = {
         active_gateway: activeGateway,
         mpwa_api_key: mpwaApiKey,
-        mpwa_api_url: mpwaApiUrl,
+        mpwa_api_url: "https://app.ayopintar.com",
       };
       let error;
       if (rowId) {
