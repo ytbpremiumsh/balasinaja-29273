@@ -194,7 +194,7 @@ serve(async (req) => {
     if (aiReplyEnabled && (messageType === 'text' || messageType === 'image')) {
       console.log('🤖 Attempting AI reply...');
       
-      // Get delay and typing indicator settings
+      // Get delay & typing indicator settings
       const { data: delaySettings } = await supabase
         .from('settings')
         .select('key, value')
@@ -207,7 +207,7 @@ serve(async (req) => {
       let onesenderApiUrl = '';
       let onesenderApiKey = '';
 
-      delaySettings?.forEach(setting => {
+      delaySettings?.forEach((setting: any) => {
         if (setting.key === 'min_delay_seconds') minDelay = parseInt(setting.value) || 5;
         if (setting.key === 'max_delay_seconds') maxDelay = parseInt(setting.value) || 15;
         if (setting.key === 'typing_indicator_enabled') typingEnabled = setting.value !== 'false';
@@ -215,37 +215,37 @@ serve(async (req) => {
         if (setting.key === 'onesender_api_key') onesenderApiKey = setting.value || '';
       });
 
-      // Calculate random delay
       const randomDelay = Math.floor(Math.random() * (maxDelay - minDelay + 1) + minDelay);
-      console.log(`⏱️ Waiting ${randomDelay} seconds before replying (anti-spam)...`);
-      
-      // Send typing indicator if enabled
-      if (typingEnabled && onesenderApiUrl && onesenderApiKey) {
+      console.log(`⏱️ Waiting ${randomDelay}s before replying (anti-spam)...`);
+
+      // Detect active gateway for typing indicator
+      const { data: activeGw } = await supabase
+        .from('wa_gateway_settings')
+        .select('active_gateway')
+        .limit(1)
+        .single();
+      const activeGateway = activeGw?.active_gateway || 'onesender';
+      console.log('🛰️ Active gateway for reply:', activeGateway);
+
+      // Typing indicator only works on OneSender; MPWA tidak support native, lewati
+      if (typingEnabled && activeGateway === 'onesender' && onesenderApiUrl && onesenderApiKey) {
         try {
-          console.log(`⌨️ Sending typing indicator to ${phone}...`);
-          const typingPayload = {
-            to: phone,
-            type: 'typing',
-            typing: { status: 'composing' }
-          };
-          
+          console.log(`⌨️ Sending typing indicator (OneSender) to ${phone}...`);
           const typingResponse = await fetch(onesenderApiUrl, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${onesenderApiKey}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify(typingPayload)
+            body: JSON.stringify({ to: phone, type: 'typing', typing: { status: 'composing' } })
           });
-          
-          if (typingResponse.ok) {
-            console.log('✅ Typing indicator sent successfully');
-          } else {
-            console.log('⚠️ Failed to send typing indicator:', await typingResponse.text());
-          }
+          if (typingResponse.ok) console.log('✅ Typing indicator sent');
+          else console.log('⚠️ Typing indicator failed:', await typingResponse.text());
         } catch (err) {
-          console.log('⚠️ Error sending typing indicator:', err);
+          console.log('⚠️ Typing indicator error:', err);
         }
+      } else if (activeGateway === 'mpwa') {
+        console.log('ℹ️ MPWA: typing indicator skipped (not natively supported)');
       }
       
       // Wait for the delay
@@ -565,46 +565,75 @@ async function sendMPWAMessage(
     // Get user's device number
     const { data: profile } = await supabase
       .from('profiles')
-      .select('mpwa_device_number')
+      .select('mpwa_device_number, mpwa_device_connected')
       .eq('user_id', userId)
       .single();
 
     const sender = profile?.mpwa_device_number;
     if (!sender) {
-      console.error('❌ Nomor device MPWA user belum diisi');
+      console.error('❌ Nomor device MPWA user belum diisi (mpwa_device_number)');
       return false;
+    }
+    if (!profile?.mpwa_device_connected) {
+      console.warn('⚠️ Device MPWA user belum tandai connected — coba kirim tetap, tapi user disarankan scan QR');
     }
 
     const apiBase = (gateway.mpwa_api_url || 'https://app.ayopintar.com').replace(/\/$/, '');
-    // MPWA only supports text natively in this integration; for image/document we send caption + link inside text
+
+    // MPWA only supports text natively. For image/document we attach link in text body.
     let body = text || '';
     if (image && (type === 'image' || type === 'document')) {
       body = body ? `${body}\n${image}` : image;
     }
+    if (!body) {
+      console.error('❌ MPWA: pesan kosong, tidak dikirim');
+      return false;
+    }
 
     const payload = {
       api_key: gateway.mpwa_api_key,
-      sender,
-      number: to,
+      sender: String(sender),
+      number: String(to),
       message: body,
       footer: 'BalasinAja',
     };
 
-    console.log('📤 Sending via MPWA, sender:', sender, 'to:', to);
-    const resp = await fetch(`${apiBase}/send-message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await resp.json().catch(() => ({}));
-    if (resp.ok && data?.status) {
-      console.log('✅ MPWA message sent');
-      return true;
+    console.log('📤 MPWA send → sender:', sender, '→ to:', to, '| len:', body.length);
+
+    // Try up to 2 times for transient errors
+    let lastErr = '';
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const resp = await fetch(`${apiBase}/send-message`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const raw = await resp.text();
+        let data: any = {};
+        try { data = JSON.parse(raw); } catch { /* not json */ }
+
+        // MPWA success: { status: true, msg: "Message sent successfully!" }
+        const ok = resp.ok && (data?.status === true || data?.status === 'true' || /sent successfully/i.test(data?.msg || ''));
+        if (ok) {
+          console.log('✅ MPWA sent (attempt', attempt + '):', data?.msg || 'ok');
+          return true;
+        }
+
+        lastErr = `HTTP ${resp.status} | ${raw.slice(0, 300)}`;
+        console.error(`❌ MPWA send failed (attempt ${attempt}):`, lastErr);
+        // Only retry on 5xx / network-ish
+        if (resp.status < 500) break;
+      } catch (e: any) {
+        lastErr = e?.message || String(e);
+        console.error(`❌ MPWA send exception (attempt ${attempt}):`, lastErr);
+      }
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 1500));
     }
-    console.error('❌ MPWA send error:', resp.status, JSON.stringify(data));
+    console.error('❌ MPWA give up. Last error:', lastErr);
     return false;
   } catch (err) {
-    console.error('❌ MPWA send exception:', err);
+    console.error('❌ MPWA send outer exception:', err);
     return false;
   }
 }
