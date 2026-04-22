@@ -18,7 +18,6 @@ export default function WAGateway() {
   const [rowId, setRowId] = useState<string | null>(null);
   const [activeGateway, setActiveGateway] = useState<"onesender" | "mpwa">("onesender");
   const [mpwaApiKey, setMpwaApiKey] = useState("");
-  const [mpwaApiUrl, setMpwaApiUrl] = useState("https://app.ayopintar.com");
 
   useEffect(() => {
     load();
@@ -36,7 +35,6 @@ export default function WAGateway() {
         setRowId(data.id);
         setActiveGateway((data.active_gateway as "onesender" | "mpwa") || "onesender");
         setMpwaApiKey(data.mpwa_api_key || "");
-        setMpwaApiUrl(data.mpwa_api_url || "https://app.ayopintar.com");
       }
     } catch (err) {
       console.error(err);
