@@ -94,66 +94,44 @@ serve(async (req) => {
     }
 
     const apiBase = 'https://app.ayopintar.com';
-    console.log('🔑 MPWA generate-qr →', { device: deviceNumber, scope, base: apiBase });
+    console.log('🔑 MPWA generate-qr →', { device: deviceNumber, scope });
 
-    // MPWA docs: POST /generate-qr with JSON body { device, api_key, force }
+    // Per MPWA docs: POST JSON to /generate-qr with { device, api_key, force }
+    const mpwaResponse = await fetch(`${apiBase}/generate-qr`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        device: deviceNumber,
+        api_key: gatewaySettings.mpwa_api_key,
+        force: true,
+      }),
+    });
+
+    const rawBody = await mpwaResponse.text();
     let mpwaData: any = {};
-    let rawBody = '';
-    let mpwaResponse: Response;
+    try { mpwaData = JSON.parse(rawBody); } catch { mpwaData = { raw: rawBody }; }
+    console.log('📥 MPWA response status:', mpwaResponse.status, 'body:', rawBody.slice(0, 500));
 
-    const tryRequest = async (method: 'POST' | 'GET') => {
-      if (method === 'POST') {
-        return fetch(`${apiBase}/generate-qr`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: JSON.stringify({
-            device: deviceNumber,
-            api_key: gatewaySettings.mpwa_api_key,
-            force: true,
-          }),
-        });
-      }
-      const url = `${apiBase}/generate-qr?device=${encodeURIComponent(deviceNumber)}&api_key=${encodeURIComponent(gatewaySettings.mpwa_api_key!)}&force=true`;
-      return fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
-    };
-
-    try {
-      mpwaResponse = await tryRequest('POST');
-      rawBody = await mpwaResponse.text();
-      try { mpwaData = JSON.parse(rawBody); } catch { mpwaData = { raw: rawBody }; }
-      console.log('📥 MPWA POST status:', mpwaResponse.status, 'body preview:', rawBody.slice(0, 300));
-
-      // If POST returned no qrcode and no connected msg, retry with GET
-      const hasQr = !!(mpwaData?.qrcode || mpwaData?.qr || mpwaData?.data?.qrcode);
-      const hasMsg = isConnectedMsg(mpwaData?.msg) || isConnectedMsg(mpwaData?.message);
-      if (!hasQr && !hasMsg) {
-        console.log('🔄 No QR from POST, retrying with GET...');
-        mpwaResponse = await tryRequest('GET');
-        rawBody = await mpwaResponse.text();
-        try { mpwaData = JSON.parse(rawBody); } catch { mpwaData = { raw: rawBody }; }
-        console.log('📥 MPWA GET status:', mpwaResponse.status, 'body preview:', rawBody.slice(0, 300));
-      }
-    } catch (e) {
-      console.error('❌ POST generate-qr threw, trying GET fallback:', e);
-      mpwaResponse = await tryRequest('GET');
-      rawBody = await mpwaResponse.text();
-      try { mpwaData = JSON.parse(rawBody); } catch { mpwaData = { raw: rawBody }; }
+    // Handle MPWA error response: { status: false, msg: "Invalid data!", errors: {...} }
+    const message = mpwaData?.msg || mpwaData?.message || '';
+    if (mpwaData?.errors && Object.keys(mpwaData.errors).length > 0) {
+      const errDetail = JSON.stringify(mpwaData.errors);
+      console.error('❌ MPWA validation error:', errDetail);
+      return new Response(JSON.stringify({
+        error: `MPWA: ${message || 'Invalid data'} — ${errDetail}`,
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // Extract qrcode from various possible shapes
-    const rawQr =
-      mpwaData?.qrcode ||
-      mpwaData?.qr ||
-      mpwaData?.data?.qrcode ||
-      mpwaData?.data?.qr ||
-      mpwaData?.result?.qrcode ||
-      null;
+    // Extract qrcode (docs: "qrcode" key with data:image/png;base64,... value)
+    const rawQr = mpwaData?.qrcode || mpwaData?.qr || mpwaData?.data?.qrcode || null;
     const qrcode = normalizeQR(rawQr);
-    const message = mpwaData?.msg || mpwaData?.message || (mpwaData?.raw ? String(mpwaData.raw).slice(0, 200) : '');
-    const connected = isConnectedMsg(mpwaData?.msg) || isConnectedMsg(mpwaData?.message);
+    const connected = isConnectedMsg(message);
 
     console.log('🎯 Result:', { hasQr: !!qrcode, connected, message });
 

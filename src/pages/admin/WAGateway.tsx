@@ -118,28 +118,30 @@ export default function WAGateway() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Konfigurasi MPWA BalasinAja</CardTitle>
-            <CardDescription>
-              API Key MPWA diisi global oleh admin. User tidak akan melihat API key ini — mereka cukup memasukkan nomor HP & scan QR.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>MPWA API Key</Label>
-              <Input
-                type="password"
-                value={mpwaApiKey}
-                onChange={(e) => setMpwaApiKey(e.target.value)}
-                placeholder="Masukkan API Key MPWA"
-              />
-              <p className="text-xs text-muted-foreground">
-                Dapatkan API key dari dashboard <b>app.ayopintar.com</b> Anda. Endpoint sudah diset otomatis ke <code>https://app.ayopintar.com</code>.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        {activeGateway === "mpwa" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Konfigurasi MPWA BalasinAja</CardTitle>
+              <CardDescription>
+                API Key MPWA diisi global oleh admin. User tidak akan melihat API key ini — mereka cukup memasukkan nomor HP & scan QR.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>MPWA API Key</Label>
+                <Input
+                  type="password"
+                  value={mpwaApiKey}
+                  onChange={(e) => setMpwaApiKey(e.target.value)}
+                  placeholder="Masukkan API Key MPWA"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Dapatkan API key dari dashboard <b>app.ayopintar.com</b> Anda. Endpoint sudah diset otomatis ke <code>https://app.ayopintar.com</code>.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="flex justify-end">
           <Button onClick={save} disabled={saving}>
