@@ -18,7 +18,6 @@ export default function WAGateway() {
   const [rowId, setRowId] = useState<string | null>(null);
   const [activeGateway, setActiveGateway] = useState<"onesender" | "mpwa">("onesender");
   const [mpwaApiKey, setMpwaApiKey] = useState("");
-  const [mpwaApiUrl, setMpwaApiUrl] = useState("https://app.ayopintar.com");
 
   useEffect(() => {
     load();
@@ -36,7 +35,6 @@ export default function WAGateway() {
         setRowId(data.id);
         setActiveGateway((data.active_gateway as "onesender" | "mpwa") || "onesender");
         setMpwaApiKey(data.mpwa_api_key || "");
-        setMpwaApiUrl(data.mpwa_api_url || "https://app.ayopintar.com");
       }
     } catch (err) {
       console.error(err);
@@ -52,7 +50,7 @@ export default function WAGateway() {
       const payload = {
         active_gateway: activeGateway,
         mpwa_api_key: mpwaApiKey,
-        mpwa_api_url: mpwaApiUrl,
+        mpwa_api_url: "https://app.ayopintar.com",
       };
       let error;
       if (rowId) {
@@ -124,18 +122,10 @@ export default function WAGateway() {
           <CardHeader>
             <CardTitle>Konfigurasi MPWA BalasinAja</CardTitle>
             <CardDescription>
-              API Key dan endpoint MPWA diisi global oleh admin. User tidak akan melihat API key ini.
+              API Key MPWA diisi global oleh admin. User tidak akan melihat API key ini — mereka cukup memasukkan nomor HP & scan QR.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>MPWA API URL</Label>
-              <Input
-                value={mpwaApiUrl}
-                onChange={(e) => setMpwaApiUrl(e.target.value)}
-                placeholder="https://app.ayopintar.com"
-              />
-            </div>
             <div className="space-y-2">
               <Label>MPWA API Key</Label>
               <Input
@@ -145,7 +135,7 @@ export default function WAGateway() {
                 placeholder="Masukkan API Key MPWA"
               />
               <p className="text-xs text-muted-foreground">
-                Dapatkan API key dari dashboard Ayo Pintar / MPWA Anda.
+                Dapatkan API key dari dashboard <b>app.ayopintar.com</b> Anda. Endpoint sudah diset otomatis ke <code>https://app.ayopintar.com</code>.
               </p>
             </div>
           </CardContent>
