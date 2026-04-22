@@ -250,11 +250,43 @@ export const MPWADeviceCard = ({
         </div>
 
         {connected && (
-          <div className="flex items-center gap-3 rounded-lg border-2 border-green-500 bg-green-50 p-4 text-green-800">
-            <CheckCircle2 className="w-6 h-6 flex-shrink-0" />
-            <div>
-              <p className="font-semibold">Device berhasil terhubung!</p>
-              <p className="text-sm">WhatsApp Anda sudah aktif dan siap mengirim pesan otomatis.</p>
+          <div className="relative overflow-hidden rounded-xl border-2 border-green-500/60 bg-gradient-to-br from-green-50 via-emerald-50 to-green-100 dark:from-green-950/40 dark:via-emerald-950/30 dark:to-green-900/40 p-6 animate-success-pop">
+            {/* pulsing ring */}
+            <div className="absolute left-8 top-1/2 -translate-y-1/2 pointer-events-none">
+              <div className="relative w-14 h-14 flex items-center justify-center">
+                <span className="absolute inset-0 rounded-full bg-green-500/40 animate-success-ring" />
+                <span className="absolute inset-0 rounded-full bg-green-500/30 animate-success-ring" style={{ animationDelay: "0.6s" }} />
+                <div className="relative z-10 w-14 h-14 rounded-full bg-green-500 flex items-center justify-center shadow-lg shadow-green-500/40">
+                  <CheckCircle2 className="w-8 h-8 text-white" strokeWidth={2.5} />
+                </div>
+              </div>
+            </div>
+            {/* confetti */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              {[...Array(14)].map((_, i) => {
+                const colors = ["bg-green-500", "bg-emerald-400", "bg-yellow-400", "bg-pink-400", "bg-blue-400"];
+                const left = (i * 7 + 5) % 100;
+                const delay = (i * 0.08).toFixed(2);
+                const color = colors[i % colors.length];
+                return (
+                  <span
+                    key={i}
+                    className={`absolute top-0 w-2 h-2 ${color} rounded-sm animate-confetti`}
+                    style={{ left: `${left}%`, animationDelay: `${delay}s` }}
+                  />
+                );
+              })}
+            </div>
+            <div className="relative pl-24">
+              <p className="text-lg font-bold text-green-700 dark:text-green-300 flex items-center gap-2">
+                Device berhasil terhubung!
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-500 text-white">
+                  AKTIF
+                </span>
+              </p>
+              <p className="text-sm text-green-700/80 dark:text-green-300/80 mt-1">
+                WhatsApp <b>{deviceNumber}</b> siap mengirim & menerima pesan otomatis dengan AI.
+              </p>
             </div>
           </div>
         )}
