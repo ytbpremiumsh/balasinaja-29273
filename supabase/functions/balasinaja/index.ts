@@ -565,46 +565,75 @@ async function sendMPWAMessage(
     // Get user's device number
     const { data: profile } = await supabase
       .from('profiles')
-      .select('mpwa_device_number')
+      .select('mpwa_device_number, mpwa_device_connected')
       .eq('user_id', userId)
       .single();
 
     const sender = profile?.mpwa_device_number;
     if (!sender) {
-      console.error('❌ Nomor device MPWA user belum diisi');
+      console.error('❌ Nomor device MPWA user belum diisi (mpwa_device_number)');
       return false;
+    }
+    if (!profile?.mpwa_device_connected) {
+      console.warn('⚠️ Device MPWA user belum tandai connected — coba kirim tetap, tapi user disarankan scan QR');
     }
 
     const apiBase = (gateway.mpwa_api_url || 'https://app.ayopintar.com').replace(/\/$/, '');
-    // MPWA only supports text natively in this integration; for image/document we send caption + link inside text
+
+    // MPWA only supports text natively. For image/document we attach link in text body.
     let body = text || '';
     if (image && (type === 'image' || type === 'document')) {
       body = body ? `${body}\n${image}` : image;
     }
+    if (!body) {
+      console.error('❌ MPWA: pesan kosong, tidak dikirim');
+      return false;
+    }
 
     const payload = {
       api_key: gateway.mpwa_api_key,
-      sender,
-      number: to,
+      sender: String(sender),
+      number: String(to),
       message: body,
       footer: 'BalasinAja',
     };
 
-    console.log('📤 Sending via MPWA, sender:', sender, 'to:', to);
-    const resp = await fetch(`${apiBase}/send-message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await resp.json().catch(() => ({}));
-    if (resp.ok && data?.status) {
-      console.log('✅ MPWA message sent');
-      return true;
+    console.log('📤 MPWA send → sender:', sender, '→ to:', to, '| len:', body.length);
+
+    // Try up to 2 times for transient errors
+    let lastErr = '';
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const resp = await fetch(`${apiBase}/send-message`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const raw = await resp.text();
+        let data: any = {};
+        try { data = JSON.parse(raw); } catch { /* not json */ }
+
+        // MPWA success: { status: true, msg: "Message sent successfully!" }
+        const ok = resp.ok && (data?.status === true || data?.status === 'true' || /sent successfully/i.test(data?.msg || ''));
+        if (ok) {
+          console.log('✅ MPWA sent (attempt', attempt + '):', data?.msg || 'ok');
+          return true;
+        }
+
+        lastErr = `HTTP ${resp.status} | ${raw.slice(0, 300)}`;
+        console.error(`❌ MPWA send failed (attempt ${attempt}):`, lastErr);
+        // Only retry on 5xx / network-ish
+        if (resp.status < 500) break;
+      } catch (e: any) {
+        lastErr = e?.message || String(e);
+        console.error(`❌ MPWA send exception (attempt ${attempt}):`, lastErr);
+      }
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 1500));
     }
-    console.error('❌ MPWA send error:', resp.status, JSON.stringify(data));
+    console.error('❌ MPWA give up. Last error:', lastErr);
     return false;
   } catch (err) {
-    console.error('❌ MPWA send exception:', err);
+    console.error('❌ MPWA send outer exception:', err);
     return false;
   }
 }
