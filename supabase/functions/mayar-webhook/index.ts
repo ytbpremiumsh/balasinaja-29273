@@ -177,6 +177,13 @@ serve(async (req) => {
               .single();
 
             if (userProfile?.phone) {
+              const { data: gateway } = await supabase
+                .from('wa_gateway_settings')
+                .select('mpwa_footer')
+                .limit(1)
+                .maybeSingle();
+              const messageFooter = gateway?.mpwa_footer || 'BalasinAja';
+
               // Get admin settings for OneSender API
               const { data: adminRole } = await supabase
                 .from('user_roles')
@@ -228,13 +235,14 @@ Langganan Anda telah diperpanjang hingga {EXPIRE_DATE}.
 Lihat detail pembayaran Anda di:
 ${paymentSuccessUrl}
 
-Terima kasih atas kepercayaan Anda menggunakan BalasinAja!`;
+Terima kasih atas kepercayaan Anda menggunakan {FOOTER}!`;
 
                   waMessage = waMessage
                     .replace(/{NAME}/g, userProfile.name || 'User')
                     .replace(/{PACKAGE_NAME}/g, packageData.name)
                     .replace(/{EXPIRE_DATE}/g, expiryDateFormatted)
-                    .replace(/{PAYMENT_URL}/g, paymentSuccessUrl);
+                    .replace(/{PAYMENT_URL}/g, paymentSuccessUrl)
+                    .replace(/{FOOTER}/g, messageFooter);
 
                   // Send WhatsApp message
                   const waResponse = await fetch(apiUrl, {
