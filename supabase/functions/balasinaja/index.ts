@@ -587,7 +587,7 @@ async function sendMPWAMessage(
       sender: String(sender),
       number: String(to),
       message: body,
-      footer: gateway.mpwa_footer || 'BalasinAja',
+      footer: gateway.mpwa_footer || 'Pesan Otomatis',
     };
 
     console.log('📤 MPWA send → sender:', sender, '→ to:', to, '| len:', body.length);
