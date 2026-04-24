@@ -18,7 +18,7 @@ export default function WAGateway() {
   const [rowId, setRowId] = useState<string | null>(null);
   const [activeGateway, setActiveGateway] = useState<"onesender" | "mpwa">("onesender");
   const [mpwaApiKey, setMpwaApiKey] = useState("");
-  const [mpwaFooter, setMpwaFooter] = useState("BalasinAja");
+  const [mpwaFooter, setMpwaFooter] = useState("Pesan Otomatis");
 
   useEffect(() => {
     load();
@@ -36,7 +36,7 @@ export default function WAGateway() {
         setRowId(data.id);
         setActiveGateway((data.active_gateway as "onesender" | "mpwa") || "onesender");
         setMpwaApiKey(data.mpwa_api_key || "");
-        setMpwaFooter((data as any).mpwa_footer || "BalasinAja");
+        setMpwaFooter((data as any).mpwa_footer || "Pesan Otomatis");
       }
     } catch (err) {
       console.error(err);
@@ -52,7 +52,7 @@ export default function WAGateway() {
       const payload = {
         active_gateway: activeGateway,
         mpwa_api_key: mpwaApiKey,
-        mpwa_footer: mpwaFooter.trim() || "BalasinAja",
+        mpwa_footer: mpwaFooter.trim() || "Pesan Otomatis",
         mpwa_api_url: "https://app.ayopintar.com",
       };
       let error;
