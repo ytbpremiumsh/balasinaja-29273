@@ -99,7 +99,7 @@ export const MPWADeviceCard = ({
     if (!silent) setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("mpwa-generate-qr", {
-        body: { device: deviceNumber, scope },
+        body: { device: deviceNumber, scope, force: true },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
@@ -181,6 +181,8 @@ export const MPWADeviceCard = ({
           title: "✅ Berhasil terhubung!",
           description: "Device WhatsApp Anda sudah aktif dan siap mengirim pesan.",
         });
+      } else if (!qrcodeRef.current && res.qrcode) {
+        setQrcode(res.qrcode);
       }
     }, POLL_INTERVAL_MS);
   };
