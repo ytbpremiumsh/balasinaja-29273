@@ -97,17 +97,24 @@ serve(async (req) => {
     const apiBase = 'https://app.ayopintar.com';
     console.log('🔑 MPWA generate-qr →', { device: deviceNumber, scope, force });
 
-    // MPWA route accepts GET (server returned 405 for POST). Use query params.
-    const qrUrl = `${apiBase}/generate-qr?device=${encodeURIComponent(deviceNumber)}&api_key=${encodeURIComponent(gatewaySettings.mpwa_api_key)}&force=${force ? 'true' : 'false'}`;
-    const mpwaResponse = await fetch(qrUrl, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
+    // MPWA docs: POST JSON body { device, api_key, force }
+    const mpwaResponse = await fetch(`${apiBase}/generate-qr`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        device: deviceNumber,
+        api_key: gatewaySettings.mpwa_api_key,
+        force,
+      }),
     });
 
     const rawBody = await mpwaResponse.text();
     let mpwaData: any = {};
     try { mpwaData = JSON.parse(rawBody); } catch { mpwaData = { raw: rawBody }; }
-    console.log('📥 MPWA GET status:', mpwaResponse.status, 'body:', rawBody.slice(0, 500));
+    console.log('📥 MPWA POST status:', mpwaResponse.status, 'body:', rawBody.slice(0, 500));
 
     // Handle MPWA error response: { status: false, msg: "Invalid data!", errors: {...} }
     const message = mpwaData?.msg || mpwaData?.message || '';
