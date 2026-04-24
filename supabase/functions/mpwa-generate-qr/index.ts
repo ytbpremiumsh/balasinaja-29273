@@ -129,10 +129,10 @@ serve(async (req) => {
       });
     }
 
-    // Extract qrcode (docs: "qrcode" key with data:image/png;base64,... value)
-    const rawQr = mpwaData?.qrcode || mpwaData?.qr || mpwaData?.data?.qrcode || null;
+    // Extract qrcode (docs: "qrcode" key with base64/data:image value)
+    const rawQr = mpwaData?.qrcode || mpwaData?.qr || mpwaData?.data?.qrcode || mpwaData?.data?.qr || null;
     const qrcode = normalizeQR(rawQr);
-    const connected = isConnectedMsg(message);
+    const connected = isConnectedMsg(message) || String(mpwaData?.status || '').toLowerCase() === 'connected';
 
     console.log('🎯 Result:', { hasQr: !!qrcode, connected, message });
 
