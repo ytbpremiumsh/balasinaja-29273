@@ -179,8 +179,8 @@ serve(async (req) => {
           }
           apiEndpoint = `${apiBase}/send-message`;
           payload = {
-            api_key: gateway.mpwa_api_key,
-            sender: gateway.mpwa_admin_device_number,
+            api_key: gateway?.mpwa_api_key,
+            sender: gateway?.mpwa_admin_device_number,
             number: item.phone,
             message: body,
             footer: 'BalasinAja',
