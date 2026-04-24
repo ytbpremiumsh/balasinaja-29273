@@ -535,7 +535,7 @@ async function sendWAMessage(supabase: any, userId: string, to: string, type: st
   // Detect active gateway (global, admin-managed)
   const { data: gateway } = await supabase
     .from('wa_gateway_settings')
-    .select('active_gateway, mpwa_api_key, mpwa_api_url')
+    .select('active_gateway, mpwa_api_key, mpwa_api_url, mpwa_admin_device_number, mpwa_admin_device_connected')
     .limit(1)
     .single();
 
@@ -555,27 +555,20 @@ async function sendMPWAMessage(
   type: string,
   text: string,
   image: string,
-  gateway: { mpwa_api_key?: string; mpwa_api_url?: string } | null,
+  gateway: { mpwa_api_key?: string; mpwa_api_url?: string; mpwa_admin_device_number?: string; mpwa_admin_device_connected?: boolean } | null,
 ): Promise<boolean> {
   try {
     if (!gateway?.mpwa_api_key) {
       console.error('❌ MPWA API key belum dikonfigurasi admin');
       return false;
     }
-    // Get user's device number
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('mpwa_device_number, mpwa_device_connected')
-      .eq('user_id', userId)
-      .single();
-
-    const sender = profile?.mpwa_device_number;
+    const sender = gateway.mpwa_admin_device_number;
     if (!sender) {
-      console.error('❌ Nomor device MPWA user belum diisi (mpwa_device_number)');
+      console.error('❌ Nomor device MPWA admin belum diisi (mpwa_admin_device_number)');
       return false;
     }
-    if (!profile?.mpwa_device_connected) {
-      console.warn('⚠️ Device MPWA user belum tandai connected — coba kirim tetap, tapi user disarankan scan QR');
+    if (!gateway.mpwa_admin_device_connected) {
+      console.warn('⚠️ Device MPWA admin belum ditandai connected — coba kirim tetap, tapi admin disarankan scan QR');
     }
 
     const apiBase = (gateway.mpwa_api_url || 'https://app.ayopintar.com').replace(/\/$/, '');
