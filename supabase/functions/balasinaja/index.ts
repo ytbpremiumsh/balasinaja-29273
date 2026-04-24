@@ -535,7 +535,7 @@ async function sendWAMessage(supabase: any, userId: string, to: string, type: st
   // Detect active gateway (global, admin-managed)
   const { data: gateway } = await supabase
     .from('wa_gateway_settings')
-    .select('active_gateway, mpwa_api_key, mpwa_api_url, mpwa_admin_device_number, mpwa_admin_device_connected')
+    .select('active_gateway, mpwa_api_key, mpwa_api_url, mpwa_admin_device_number, mpwa_admin_device_connected, mpwa_footer')
     .limit(1)
     .single();
 
@@ -555,7 +555,7 @@ async function sendMPWAMessage(
   type: string,
   text: string,
   image: string,
-  gateway: { mpwa_api_key?: string; mpwa_api_url?: string; mpwa_admin_device_number?: string; mpwa_admin_device_connected?: boolean } | null,
+  gateway: { mpwa_api_key?: string; mpwa_api_url?: string; mpwa_admin_device_number?: string; mpwa_admin_device_connected?: boolean; mpwa_footer?: string } | null,
 ): Promise<boolean> {
   try {
     if (!gateway?.mpwa_api_key) {
@@ -588,7 +588,7 @@ async function sendMPWAMessage(
       sender: String(sender),
       number: String(to),
       message: body,
-      footer: 'BalasinAja',
+      footer: gateway.mpwa_footer || 'BalasinAja',
     };
 
     console.log('📤 MPWA send → sender:', sender, '→ to:', to, '| len:', body.length);
