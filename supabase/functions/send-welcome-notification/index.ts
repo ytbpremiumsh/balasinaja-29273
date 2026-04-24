@@ -108,6 +108,7 @@ serve(async (req) => {
       .maybeSingle();
 
     const activeGateway = gateway?.active_gateway || 'onesender';
+    const messageFooter = gateway?.mpwa_footer || 'BalasinAja';
     console.log('🛰️ Active gateway:', activeGateway);
 
     // Get welcome template
@@ -134,7 +135,8 @@ Terima kasih telah bergabung! 🎉`;
 
     message = message
       .replace(/{NAME}/g, name || 'User')
-      .replace(/{EXPIRE_DATE}/g, expiryDate);
+      .replace(/{EXPIRE_DATE}/g, expiryDate)
+      .replace(/{FOOTER}/g, messageFooter);
 
     console.log('Sending WhatsApp message to:', phone);
 
@@ -156,7 +158,7 @@ Terima kasih telah bergabung! 🎉`;
           sender: gateway.mpwa_admin_device_number,
           number: phone,
           message,
-          footer: gateway.mpwa_footer || 'BalasinAja',
+          footer: messageFooter,
         }),
       });
     } else {
