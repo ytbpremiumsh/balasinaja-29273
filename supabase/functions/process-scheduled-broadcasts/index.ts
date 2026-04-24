@@ -103,12 +103,20 @@ serve(async (req) => {
           continue;
         }
 
-        // Get user's OneSender settings
-        const { data: settingsData, error: settingsError } = await supabase
-          .from('settings')
-          .select('key, value')
-          .eq('user_id', broadcastLog.user_id)
-          .in('key', ['onesender_api_url', 'onesender_api_key']);
+        const { data: gateway } = await supabase
+          .from('wa_gateway_settings')
+          .select('active_gateway, mpwa_api_key, mpwa_api_url, mpwa_admin_device_number')
+          .limit(1)
+          .maybeSingle();
+
+        const activeGateway = gateway?.active_gateway || 'onesender';
+        const { data: settingsData, error: settingsError } = activeGateway === 'onesender'
+          ? await supabase
+              .from('settings')
+              .select('key, value')
+              .eq('user_id', broadcastLog.user_id)
+              .in('key', ['onesender_api_url', 'onesender_api_key'])
+          : { data: [], error: null };
 
         if (settingsError) {
           console.error('❌ Error fetching settings:', settingsError);
@@ -133,7 +141,7 @@ serve(async (req) => {
         const apiUrl = settingsMap.onesender_api_url || '';
         const apiKey = settingsMap.onesender_api_key || '';
 
-        if (!apiUrl || !apiKey) {
+        if (activeGateway === 'onesender' && (!apiUrl || !apiKey)) {
           console.error('❌ OneSender API not configured for user:', broadcastLog.user_id);
           await supabase
             .from('broadcast_queue')
@@ -146,37 +154,63 @@ serve(async (req) => {
           continue;
         }
 
-        // Send message via OneSender
-        const payload: any = {
-          to: item.phone,
-          type: item.media_type || 'text',
-          priority: 10
-        };
+        if (activeGateway === 'mpwa' && (!gateway?.mpwa_api_key || !gateway?.mpwa_admin_device_number)) {
+          console.error('❌ MPWA admin gateway not configured');
+          await supabase
+            .from('broadcast_queue')
+            .update({
+              status: 'failed',
+              error_message: 'MPWA admin belum dikonfigurasi'
+            })
+            .eq('id', item.id);
+          failCount++;
+          continue;
+        }
 
-        // Determine API endpoint based on media type
+        let payload: any;
         let apiEndpoint = apiUrl;
-        
-        // For image broadcasts, use the media endpoint
-        if (payload.type === 'image') {
-          apiEndpoint = apiUrl.replace("/api/v1/message/send", "/api/v1/media");
+        let headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+        if (activeGateway === 'mpwa') {
+          const apiBase = (gateway?.mpwa_api_url || 'https://app.ayopintar.com').replace(/\/$/, '');
+          let body = item.message || '';
+          if (item.media_url && ['image', 'document', 'video'].includes(item.media_type || '')) {
+            body = body ? `${body}\n${item.media_url}` : item.media_url;
+          }
+          apiEndpoint = `${apiBase}/send-message`;
+          payload = {
+            api_key: gateway?.mpwa_api_key,
+            sender: gateway?.mpwa_admin_device_number,
+            number: item.phone,
+            message: body,
+            footer: 'BalasinAja',
+          };
+        } else {
+          payload = {
+            to: item.phone,
+            type: item.media_type || 'text',
+            priority: 10
+          };
+
+          if (payload.type === 'image') {
+            apiEndpoint = apiUrl.replace("/api/v1/message/send", "/api/v1/media");
+          }
+
+          if (payload.type === 'text') {
+            payload.text = { body: item.message };
+          } else if (payload.type === 'image') {
+            payload.image = { link: item.media_url, caption: item.message };
+          } else if (payload.type === 'document') {
+            payload.document = { link: item.media_url, caption: item.message };
+          }
+          headers = { ...headers, 'Authorization': `Bearer ${apiKey}` };
         }
 
-        if (payload.type === 'text') {
-          payload.text = { body: item.message };
-        } else if (payload.type === 'image') {
-          payload.image = { link: item.media_url, caption: item.message };
-        } else if (payload.type === 'document') {
-          payload.document = { link: item.media_url, caption: item.message };
-        }
-
-        console.log(`📤 Sending to ${item.phone}...`);
+        console.log(`📤 Sending via ${activeGateway} to ${item.phone}...`);
 
         const response = await fetch(apiEndpoint, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-          },
+          headers,
           body: JSON.stringify(payload)
         });
 

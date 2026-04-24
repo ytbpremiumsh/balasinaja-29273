@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.mpwa-generate-qr]
 verify_jwt = false
+
+[functions.mpwa-webhook]
+verify_jwt = false
