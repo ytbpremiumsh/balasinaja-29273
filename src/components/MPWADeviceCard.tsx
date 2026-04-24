@@ -119,6 +119,22 @@ export const MPWADeviceCard = ({
     }
   };
 
+  const checkConnection = async () => {
+    if (generatingRef.current) return null;
+    generatingRef.current = true;
+    try {
+      const { data, error } = await supabase.functions.invoke("mpwa-generate-qr", {
+        body: { device: deviceNumber, scope, force: false },
+      });
+      if (error) throw error;
+      return data as { qrcode: string | null; message: string; connected: boolean };
+    } catch {
+      return null;
+    } finally {
+      generatingRef.current = false;
+    }
+  };
+
   const refreshQR = async () => {
     const res = await callGenerate(true);
     if (!res) return;
@@ -153,7 +169,7 @@ export const MPWADeviceCard = ({
   const startPolling = () => {
     stopPolling();
     pollRef.current = window.setInterval(async () => {
-      const res = await callGenerate(true);
+      const res = await checkConnection();
       if (!res) return;
       if (res.connected) {
         setConnected(true);
@@ -165,8 +181,6 @@ export const MPWADeviceCard = ({
           title: "✅ Berhasil terhubung!",
           description: "Device WhatsApp Anda sudah aktif dan siap mengirim pesan.",
         });
-      } else if (res.qrcode && res.qrcode !== qrcodeRef.current) {
-        setQrcode(res.qrcode);
       }
     }, POLL_INTERVAL_MS);
   };

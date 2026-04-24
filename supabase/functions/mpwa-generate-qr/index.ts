@@ -55,6 +55,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const deviceNumber = String(body.device || '').trim();
     const scope = (body.scope === 'admin') ? 'admin' : 'user';
+    const force = body.force === false ? false : true;
 
     if (!deviceNumber || !/^\d{8,20}$/.test(deviceNumber)) {
       return new Response(JSON.stringify({ error: 'Nomor device tidak valid (hanya angka 8-20 digit)' }), {
@@ -94,10 +95,10 @@ serve(async (req) => {
     }
 
     const apiBase = 'https://app.ayopintar.com';
-    console.log('🔑 MPWA generate-qr →', { device: deviceNumber, scope });
+    console.log('🔑 MPWA generate-qr →', { device: deviceNumber, scope, force });
 
     // MPWA route accepts GET (server returned 405 for POST). Use query params.
-    const qrUrl = `${apiBase}/generate-qr?device=${encodeURIComponent(deviceNumber)}&api_key=${encodeURIComponent(gatewaySettings.mpwa_api_key)}&force=true`;
+    const qrUrl = `${apiBase}/generate-qr?device=${encodeURIComponent(deviceNumber)}&api_key=${encodeURIComponent(gatewaySettings.mpwa_api_key)}&force=${force ? 'true' : 'false'}`;
     const mpwaResponse = await fetch(qrUrl, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
