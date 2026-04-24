@@ -802,6 +802,7 @@ export type Database = {
           mpwa_admin_device_number: string | null
           mpwa_api_key: string | null
           mpwa_api_url: string | null
+          mpwa_footer: string
           updated_at: string
         }
         Insert: {
@@ -812,6 +813,7 @@ export type Database = {
           mpwa_admin_device_number?: string | null
           mpwa_api_key?: string | null
           mpwa_api_url?: string | null
+          mpwa_footer?: string
           updated_at?: string
         }
         Update: {
@@ -822,6 +824,7 @@ export type Database = {
           mpwa_admin_device_number?: string | null
           mpwa_api_key?: string | null
           mpwa_api_url?: string | null
+          mpwa_footer?: string
           updated_at?: string
         }
         Relationships: []
