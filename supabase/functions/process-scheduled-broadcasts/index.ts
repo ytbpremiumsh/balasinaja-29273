@@ -105,7 +105,7 @@ serve(async (req) => {
 
         const { data: gateway } = await supabase
           .from('wa_gateway_settings')
-          .select('active_gateway, mpwa_api_key, mpwa_api_url, mpwa_admin_device_number')
+          .select('active_gateway, mpwa_api_key, mpwa_api_url, mpwa_admin_device_number, mpwa_footer')
           .limit(1)
           .maybeSingle();
 
@@ -183,7 +183,7 @@ serve(async (req) => {
             sender: gateway?.mpwa_admin_device_number,
             number: item.phone,
             message: body,
-            footer: 'BalasinAja',
+            footer: gateway?.mpwa_footer || 'BalasinAja',
           };
         } else {
           payload = {

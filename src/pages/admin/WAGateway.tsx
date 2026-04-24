@@ -18,6 +18,7 @@ export default function WAGateway() {
   const [rowId, setRowId] = useState<string | null>(null);
   const [activeGateway, setActiveGateway] = useState<"onesender" | "mpwa">("onesender");
   const [mpwaApiKey, setMpwaApiKey] = useState("");
+  const [mpwaFooter, setMpwaFooter] = useState("BalasinAja");
 
   useEffect(() => {
     load();
@@ -35,6 +36,7 @@ export default function WAGateway() {
         setRowId(data.id);
         setActiveGateway((data.active_gateway as "onesender" | "mpwa") || "onesender");
         setMpwaApiKey(data.mpwa_api_key || "");
+        setMpwaFooter((data as any).mpwa_footer || "BalasinAja");
       }
     } catch (err) {
       console.error(err);
@@ -50,14 +52,14 @@ export default function WAGateway() {
       const payload = {
         active_gateway: activeGateway,
         mpwa_api_key: mpwaApiKey,
+        mpwa_footer: mpwaFooter.trim() || "BalasinAja",
         mpwa_api_url: "https://app.ayopintar.com",
       };
       let error;
       if (rowId) {
-        ({ error } = await supabase.from("wa_gateway_settings").update(payload).eq("id", rowId));
+        ({ error } = await (supabase.from("wa_gateway_settings") as any).update(payload).eq("id", rowId));
       } else {
-        const { data, error: insErr } = await supabase
-          .from("wa_gateway_settings")
+        const { data, error: insErr } = await (supabase.from("wa_gateway_settings") as any)
           .insert(payload)
           .select("id")
           .single();
@@ -137,6 +139,18 @@ export default function WAGateway() {
                 />
                 <p className="text-xs text-muted-foreground">
                   Dapatkan API key dari dashboard <b>app.ayopintar.com</b> Anda. Endpoint sudah diset otomatis ke <code>https://app.ayopintar.com</code>.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Footer Pesan MPWA</Label>
+                <Input
+                  value={mpwaFooter}
+                  onChange={(e) => setMpwaFooter(e.target.value)}
+                  placeholder="Contoh: Nama Brand Anda"
+                  maxLength={60}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Teks ini akan dipakai sebagai footer untuk semua pesan yang dikirim melalui MPWA.
                 </p>
               </div>
             </CardContent>
