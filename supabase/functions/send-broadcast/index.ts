@@ -69,7 +69,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Detect active gateway (global, admin-managed)
     const { data: gateway } = await supabase
       .from("wa_gateway_settings")
-      .select("active_gateway, mpwa_api_key, mpwa_api_url")
+      .select("active_gateway, mpwa_api_key, mpwa_api_url, mpwa_footer")
       .limit(1)
       .maybeSingle();
 
@@ -101,6 +101,7 @@ const handler = async (req: Request): Promise<Response> => {
     const mpwaSender = profileForBroadcast?.mpwa_device_number || "";
     const mpwaApiKey = gateway?.mpwa_api_key || "";
     const mpwaApiBase = (gateway?.mpwa_api_url || "https://app.ayopintar.com").replace(/\/$/, "");
+    const mpwaFooter = gateway?.mpwa_footer || "BalasinAja";
 
     if (activeGateway === "onesender" && (!apiUrl || !apiKey)) {
       throw new Error("OneSender API belum dikonfigurasi. Silakan set API URL dan API Key di Konfigurasi API.");
@@ -225,7 +226,7 @@ const handler = async (req: Request): Promise<Response> => {
             sender: mpwaSender,
             number: recipient.phone,
             message: body,
-            footer: "BalasinAja",
+            footer: mpwaFooter,
           };
         } else {
           // OneSender (existing logic)
