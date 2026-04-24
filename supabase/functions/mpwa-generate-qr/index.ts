@@ -95,20 +95,25 @@ serve(async (req) => {
     }
 
     const apiBase = 'https://app.ayopintar.com';
-    console.log('🔑 MPWA generate-qr →', { device: deviceNumber, scope, force });
+    const apiKey = gatewaySettings.mpwa_api_key;
+    const params = new URLSearchParams({
+      device: deviceNumber,
+      api_key: apiKey,
+      force: force ? '1' : '0',
+    });
+    console.log('🔑 MPWA generate-qr →', {
+      device: deviceNumber,
+      scope,
+      force,
+      apiKeyPrefix: `${String(apiKey).slice(0, 4)}***`,
+      apiKeyLength: String(apiKey).length,
+    });
 
-    // MPWA docs: POST JSON body { device, api_key, force }
-    const mpwaResponse = await fetch(`${apiBase}/generate-qr`, {
-      method: 'POST',
+    const mpwaResponse = await fetch(`${apiBase}/generate-qr?${params.toString()}`, {
+      method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        device: deviceNumber,
-        api_key: gatewaySettings.mpwa_api_key,
-        force,
-      }),
     });
 
     const rawBody = await mpwaResponse.text();
