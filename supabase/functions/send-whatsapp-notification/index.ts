@@ -73,6 +73,8 @@ serve(async (req) => {
       .maybeSingle();
 
     const activeGateway = gateway?.active_gateway || 'onesender';
+    const messageFooter = gateway?.mpwa_footer || 'BalasinAja';
+    const finalMessage = String(message).replace(/{FOOTER}/g, messageFooter);
     console.log('🛰️ Active gateway:', activeGateway);
 
     let response: Response;
@@ -93,8 +95,8 @@ serve(async (req) => {
           api_key: gateway.mpwa_api_key,
           sender: gateway.mpwa_admin_device_number,
           number: phone,
-          message,
-          footer: gateway.mpwa_footer || 'BalasinAja',
+          message: finalMessage,
+          footer: messageFooter,
         }),
       });
     } else {
@@ -137,7 +139,7 @@ serve(async (req) => {
       response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({ to: phone, type: 'text', text: { body: message }, priority: 10 }),
+        body: JSON.stringify({ to: phone, type: 'text', text: { body: finalMessage }, priority: 10 }),
       });
     }
 
