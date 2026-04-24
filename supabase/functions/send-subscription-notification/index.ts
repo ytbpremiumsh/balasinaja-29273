@@ -100,6 +100,13 @@ serve(async (req) => {
     const adminUserId = adminRole.user_id;
     console.log('Using admin user ID:', adminUserId);
 
+    const { data: gateway } = await supabaseClient
+      .from('wa_gateway_settings')
+      .select('mpwa_footer')
+      .limit(1)
+      .maybeSingle();
+    const messageFooter = gateway?.mpwa_footer || 'BalasinAja';
+
     // Get API settings from admin's settings
     const { data: settings } = await supabaseClient
       .from('settings')
@@ -146,9 +153,9 @@ Langganan Anda telah berhasil diperpanjang:
 📦 Paket: ${packageName}
 📅 Berakhir: ${formattedDate}
 
-Terima kasih telah memperpanjang langganan Anda. Nikmati terus layanan BalasinAja!
+Terima kasih telah memperpanjang langganan Anda. Nikmati terus layanan ${messageFooter}!
 
-- Tim BalasinAja`;
+- Tim ${messageFooter}`;
 
     console.log('Sending WhatsApp message to:', phone);
 
