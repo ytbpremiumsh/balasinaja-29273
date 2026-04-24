@@ -108,7 +108,7 @@ serve(async (req) => {
       .maybeSingle();
 
     const activeGateway = gateway?.active_gateway || 'onesender';
-    const messageFooter = gateway?.mpwa_footer || 'BalasinAja';
+    const messageFooter = gateway?.mpwa_footer || 'Pesan Otomatis';
     console.log('🛰️ Active gateway:', activeGateway);
 
     // Get welcome template
@@ -125,7 +125,7 @@ serve(async (req) => {
 
     let message = template?.message_template || `Halo {NAME} 👋
 
-Selamat datang di BalasinAja! 
+Selamat datang di {FOOTER}! 
 
 Akun Anda telah berhasil dibuat dan aktif hingga {EXPIRE_DATE}.
 

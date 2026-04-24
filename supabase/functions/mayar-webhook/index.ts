@@ -182,7 +182,7 @@ serve(async (req) => {
                 .select('mpwa_footer')
                 .limit(1)
                 .maybeSingle();
-              const messageFooter = gateway?.mpwa_footer || 'BalasinAja';
+              const messageFooter = gateway?.mpwa_footer || 'Pesan Otomatis';
 
               // Get admin settings for OneSender API
               const { data: adminRole } = await supabase

@@ -73,7 +73,7 @@ serve(async (req) => {
       .maybeSingle();
 
     const activeGateway = gateway?.active_gateway || 'onesender';
-    const messageFooter = gateway?.mpwa_footer || 'BalasinAja';
+    const messageFooter = gateway?.mpwa_footer || 'Pesan Otomatis';
     const finalMessage = String(message).replace(/{FOOTER}/g, messageFooter);
     console.log('🛰️ Active gateway:', activeGateway);
 

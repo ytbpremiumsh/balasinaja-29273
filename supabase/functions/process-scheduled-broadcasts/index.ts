@@ -183,7 +183,7 @@ serve(async (req) => {
             sender: gateway?.mpwa_admin_device_number,
             number: item.phone,
             message: body,
-            footer: gateway?.mpwa_footer || 'BalasinAja',
+            footer: gateway?.mpwa_footer || 'Pesan Otomatis',
           };
         } else {
           payload = {

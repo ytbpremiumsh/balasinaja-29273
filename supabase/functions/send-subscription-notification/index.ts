@@ -105,7 +105,7 @@ serve(async (req) => {
       .select('mpwa_footer')
       .limit(1)
       .maybeSingle();
-    const messageFooter = gateway?.mpwa_footer || 'BalasinAja';
+    const messageFooter = gateway?.mpwa_footer || 'Pesan Otomatis';
 
     // Get API settings from admin's settings
     const { data: settings } = await supabaseClient

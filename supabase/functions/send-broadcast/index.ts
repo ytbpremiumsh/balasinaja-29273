@@ -101,7 +101,7 @@ const handler = async (req: Request): Promise<Response> => {
     const mpwaSender = profileForBroadcast?.mpwa_device_number || "";
     const mpwaApiKey = gateway?.mpwa_api_key || "";
     const mpwaApiBase = (gateway?.mpwa_api_url || "https://app.ayopintar.com").replace(/\/$/, "");
-    const mpwaFooter = gateway?.mpwa_footer || "BalasinAja";
+    const mpwaFooter = gateway?.mpwa_footer || "Pesan Otomatis";
 
     if (activeGateway === "onesender" && (!apiUrl || !apiKey)) {
       throw new Error("OneSender API belum dikonfigurasi. Silakan set API URL dan API Key di Konfigurasi API.");
