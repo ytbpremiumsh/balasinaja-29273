@@ -102,13 +102,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const apiBase = 'https://app.ayopintar.com';
+    const apiBase = (gatewaySettings.mpwa_api_url || 'https://app.ayopintar.com').replace(/\/$/, '');
     const apiKey = gatewaySettings.mpwa_api_key;
-    const params = new URLSearchParams({
-      device: deviceNumber,
-      api_key: apiKey,
-      force: force ? '1' : '0',
-    });
     console.log('🔑 MPWA generate-qr →', {
       device: deviceNumber,
       scope,
@@ -117,17 +112,23 @@ Deno.serve(async (req) => {
       apiKeyLength: String(apiKey).length,
     });
 
-    const mpwaResponse = await fetch(`${apiBase}/generate-qr?${params.toString()}`, {
-      method: 'GET',
+    const mpwaResponse = await fetch(`${apiBase}/generate-qr`, {
+      method: 'POST',
       headers: {
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        device: deviceNumber,
+        api_key: apiKey,
+        force,
+      }),
     });
 
     const rawBody = await mpwaResponse.text();
     let mpwaData: any = {};
     try { mpwaData = JSON.parse(rawBody); } catch { mpwaData = { raw: rawBody }; }
-    console.log('📥 MPWA POST status:', mpwaResponse.status, 'body:', rawBody.slice(0, 500));
+    console.log('📥 MPWA generate-qr status:', mpwaResponse.status, 'body:', rawBody.slice(0, 500));
 
     // Handle MPWA error response: { status: false, msg: "Invalid data!", errors: {...} }
     const message = mpwaData?.msg || mpwaData?.message || '';
@@ -143,9 +144,7 @@ Deno.serve(async (req) => {
     }
 
     // Extract qrcode (docs: "qrcode" key with base64/data:image value)
-    const rawQr = force
-      ? (mpwaData?.qrcode || mpwaData?.qr || mpwaData?.data?.qrcode || mpwaData?.data?.qr || null)
-      : null;
+    const rawQr = mpwaData?.qrcode || mpwaData?.qr || mpwaData?.data?.qrcode || mpwaData?.data?.qr || null;
     const qrcode = normalizeQR(rawQr);
     const connected = isConnectedResponse(mpwaData, message);
 

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Send, Plus, Trash2, Edit, Users, Radio, Calendar, FileText, CheckCircle, XCircle, Clock, Download } from "lucide-react";
+import { Send, Plus, Trash2, Edit, Users, Radio, Calendar, FileText, CheckCircle, XCircle, Clock, Download, Link, Phone, Copy } from "lucide-react";
 import { TemplateLibrary } from "@/components/broadcast/TemplateLibrary";
 import { CSVUpload } from "@/components/broadcast/CSVUpload";
 import {
@@ -49,6 +49,14 @@ interface BroadcastStats {
   pending: number;
 }
 
+interface BroadcastButton {
+  type: "reply" | "call" | "url" | "copy";
+  displayText: string;
+  phoneNumber?: string;
+  url?: string;
+  copyText?: string;
+}
+
 export default function Broadcast() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -62,6 +70,7 @@ export default function Broadcast() {
   const [delayMin, setDelayMin] = useState(1);
   const [delayMax, setDelayMax] = useState(3);
   const [usePersonalization, setUsePersonalization] = useState(false);
+  const [buttons, setButtons] = useState<BroadcastButton[]>([]);
   
   // Real-time stats
   const [currentBroadcastId, setCurrentBroadcastId] = useState<string | null>(null);
@@ -290,6 +299,19 @@ export default function Broadcast() {
     setMessage(prev => prev + variable);
   };
 
+  const addBroadcastButton = (type: BroadcastButton["type"]) => {
+    if (buttons.length >= 5) return;
+    setButtons((prev) => [...prev, { type, displayText: type === "reply" ? "Balas" : type === "call" ? "Telepon" : type === "url" ? "Buka Link" : "Salin" }]);
+  };
+
+  const updateBroadcastButton = (index: number, updates: Partial<BroadcastButton>) => {
+    setButtons((prev) => prev.map((button, i) => (i === index ? { ...button, ...updates } : button)));
+  };
+
+  const removeBroadcastButton = (index: number) => {
+    setButtons((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const sendBroadcast = async () => {
     if (!selectedCategory) {
       toast({
@@ -360,6 +382,7 @@ export default function Broadcast() {
           delay_min: delayMin,
           delay_max: delayMax,
           use_personalization: usePersonalization,
+          buttons: buttons.filter((button) => button.displayText.trim()),
         },
       });
 
@@ -383,6 +406,7 @@ export default function Broadcast() {
       setSelectedCategory("");
       setMediaUrl("");
       setScheduledAt("");
+      setButtons([]);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -712,6 +736,40 @@ export default function Broadcast() {
                         {"{{tanggal}}"}
                       </Badge>
                     </div>
+                  </div>
+
+                  <div className="space-y-3 rounded-lg border p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label>Tombol MPWA (Opsional)</Label>
+                      <div className="flex flex-wrap gap-1">
+                        <Button type="button" variant="outline" size="sm" onClick={() => addBroadcastButton("reply")} disabled={buttons.length >= 5}>Reply</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => addBroadcastButton("call")} disabled={buttons.length >= 5}><Phone className="w-3 h-3" /></Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => addBroadcastButton("url")} disabled={buttons.length >= 5}><Link className="w-3 h-3" /></Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => addBroadcastButton("copy")} disabled={buttons.length >= 5}><Copy className="w-3 h-3" /></Button>
+                      </div>
+                    </div>
+                    {buttons.map((button, index) => (
+                      <div key={index} className="grid grid-cols-1 md:grid-cols-[120px_1fr_1fr_auto] gap-2 items-end">
+                        <Select value={button.type} onValueChange={(value) => updateBroadcastButton(index, { type: value as BroadcastButton["type"] })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="reply">Reply</SelectItem>
+                            <SelectItem value="call">Call</SelectItem>
+                            <SelectItem value="url">URL</SelectItem>
+                            <SelectItem value="copy">Copy</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input value={button.displayText} onChange={(e) => updateBroadcastButton(index, { displayText: e.target.value })} placeholder="Label tombol" maxLength={24} />
+                        <Input
+                          value={button.type === "call" ? button.phoneNumber || "" : button.type === "url" ? button.url || "" : button.type === "copy" ? button.copyText || "" : ""}
+                          onChange={(e) => updateBroadcastButton(index, button.type === "call" ? { phoneNumber: e.target.value.replace(/\D/g, "") } : button.type === "url" ? { url: e.target.value } : button.type === "copy" ? { copyText: e.target.value } : {})}
+                          placeholder={button.type === "call" ? "628123456789" : button.type === "url" ? "https://example.com" : button.type === "copy" ? "Kode kupon" : "Tidak perlu diisi"}
+                          disabled={button.type === "reply"}
+                        />
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeBroadcastButton(index)}><Trash2 className="w-4 h-4" /></Button>
+                      </div>
+                    ))}
+                    <p className="text-xs text-muted-foreground">Saat gateway aktif MPWA, tombol dikirim via Send Button API. Maksimal 5 tombol.</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

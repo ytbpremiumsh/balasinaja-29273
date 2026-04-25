@@ -97,6 +97,7 @@ export type Database = {
       }
       broadcast_logs: {
         Row: {
+          buttons: Json | null
           category_id: string | null
           created_at: string
           delay_max: number | null
@@ -115,6 +116,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          buttons?: Json | null
           category_id?: string | null
           created_at?: string
           delay_max?: number | null
@@ -133,6 +135,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          buttons?: Json | null
           category_id?: string | null
           created_at?: string
           delay_max?: number | null
@@ -170,6 +173,7 @@ export type Database = {
       broadcast_queue: {
         Row: {
           broadcast_log_id: string | null
+          buttons: Json | null
           created_at: string | null
           error_message: string | null
           id: string
@@ -185,6 +189,7 @@ export type Database = {
         }
         Insert: {
           broadcast_log_id?: string | null
+          buttons?: Json | null
           created_at?: string | null
           error_message?: string | null
           id?: string
@@ -200,6 +205,7 @@ export type Database = {
         }
         Update: {
           broadcast_log_id?: string | null
+          buttons?: Json | null
           created_at?: string | null
           error_message?: string | null
           id?: string

@@ -173,11 +173,13 @@ serve(async (req) => {
 
         if (activeGateway === 'mpwa') {
           const apiBase = (gateway?.mpwa_api_url || 'https://app.ayopintar.com').replace(/\/$/, '');
+          const buttons = Array.isArray((item as any).buttons) ? (item as any).buttons.slice(0, 5) : [];
+          const hasButtons = buttons.length > 0;
           let body = item.message || '';
-          if (item.media_url && ['image', 'document', 'video'].includes(item.media_type || '')) {
+          if (!hasButtons && item.media_url && ['image', 'document', 'video'].includes(item.media_type || '')) {
             body = body ? `${body}\n${item.media_url}` : item.media_url;
           }
-          apiEndpoint = `${apiBase}/send-message`;
+          apiEndpoint = hasButtons ? `${apiBase}/send-button` : `${apiBase}/send-message`;
           payload = {
             api_key: gateway?.mpwa_api_key,
             sender: gateway?.mpwa_admin_device_number,
@@ -185,6 +187,10 @@ serve(async (req) => {
             message: body,
             footer: gateway?.mpwa_footer || 'Pesan Otomatis',
           };
+          if (hasButtons) {
+            payload.button = buttons;
+            payload.image = item.media_url || 'https://placehold.co/1200x630/png?text=Broadcast';
+          }
         } else {
           payload = {
             to: item.phone,
@@ -215,7 +221,10 @@ serve(async (req) => {
         });
 
         if (response.ok) {
-          const responseData = await response.json();
+          const responseData = await response.json().catch(() => ({}));
+          if (activeGateway === 'mpwa' && responseData?.status === false) {
+            throw new Error(responseData?.msg || 'MPWA gagal mengirim pesan');
+          }
           console.log(`✅ Message sent to ${item.phone}`, responseData);
           
           await supabase
