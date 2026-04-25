@@ -299,6 +299,19 @@ export default function Broadcast() {
     setMessage(prev => prev + variable);
   };
 
+  const addBroadcastButton = (type: BroadcastButton["type"]) => {
+    if (buttons.length >= 5) return;
+    setButtons((prev) => [...prev, { type, displayText: type === "reply" ? "Balas" : type === "call" ? "Telepon" : type === "url" ? "Buka Link" : "Salin" }]);
+  };
+
+  const updateBroadcastButton = (index: number, updates: Partial<BroadcastButton>) => {
+    setButtons((prev) => prev.map((button, i) => (i === index ? { ...button, ...updates } : button)));
+  };
+
+  const removeBroadcastButton = (index: number) => {
+    setButtons((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const sendBroadcast = async () => {
     if (!selectedCategory) {
       toast({
@@ -369,6 +382,7 @@ export default function Broadcast() {
           delay_min: delayMin,
           delay_max: delayMax,
           use_personalization: usePersonalization,
+          buttons: buttons.filter((button) => button.displayText.trim()),
         },
       });
 
@@ -392,6 +406,7 @@ export default function Broadcast() {
       setSelectedCategory("");
       setMediaUrl("");
       setScheduledAt("");
+      setButtons([]);
     } catch (error: any) {
       toast({
         title: "Error",
