@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -18,12 +17,21 @@ function normalizeQR(raw: any): string | null {
   return raw;
 }
 
-function isConnectedMsg(msg: any): boolean {
-  if (!msg) return false;
-  return String(msg).toLowerCase().includes('already connected');
+function isConnectedResponse(data: any, msg: any): boolean {
+  const status = String(data?.status || data?.data?.status || '').toLowerCase();
+  const message = String(msg || '').toLowerCase();
+  return (
+    status === 'connected' ||
+    status === 'authenticated' ||
+    status === 'ready' ||
+    message.includes('already connected') ||
+    message.includes('connected') ||
+    message.includes('authenticated') ||
+    message.includes('ready')
+  );
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
