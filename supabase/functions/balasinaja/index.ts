@@ -366,9 +366,10 @@ async function generateAiReply(
       console.log('💬 Including', conversationHistory.length, 'previous messages in context');
     }
 
+    const linkFormatInstruction = '\n\nInstruksi format link: jika menyertakan URL, tulis URL asli secara polos tanpa markdown, tanpa **URL**, tanpa [URL](...), dan tanpa tanda ** agar link tetap aktif di WhatsApp.';
     const userPrompt = context 
-      ? `Gunakan knowledge base berikut untuk menjawab:\n\n${context}${historyContext}\nPertanyaan saat ini: ${question}`
-      : `${historyContext}Pertanyaan: ${question}`;
+      ? `Gunakan knowledge base berikut untuk menjawab:\n\n${context}${historyContext}\nPertanyaan saat ini: ${question}${linkFormatInstruction}`
+      : `${historyContext}Pertanyaan: ${question}${linkFormatInstruction}`;
 
     let apiUrl = '';
     let apiKey = '';
@@ -506,16 +507,28 @@ async function generateAiReply(
 
     // Extract response based on vendor
     if (aiVendor === 'lovable' || aiVendor === 'openai' || aiVendor === 'openrouter') {
-      return data.choices?.[0]?.message?.content?.trim() || '';
+      return cleanAiReplyLinks(data.choices?.[0]?.message?.content?.trim() || '');
     } else {
       // Gemini
-      return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+      return cleanAiReplyLinks(data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '');
     }
 
   } catch (error) {
     console.error('❌ Error generating AI reply:', error);
     return '';
   }
+}
+
+function cleanAiReplyLinks(text: string): string {
+  return String(text || '')
+    .replace(/\[[^\]]*\]\(((?:https?:\/\/|www\.)[^\s)]+)\)/gi, '$1')
+    .replace(/\*\*\s*(URL|Link|Tautan)\s*\*\*\s*:?\s*/gi, '')
+    .replace(/__\s*(URL|Link|Tautan)\s*__\s*:?\s*/gi, '')
+    .replace(/\*\*((?:https?:\/\/|www\.)[^\s*]+)\*\*/gi, '$1')
+    .replace(/__((?:https?:\/\/|www\.)[^\s_]+)__/gi, '$1')
+    .replace(/`((?:https?:\/\/|www\.)[^`\s]+)`/gi, '$1')
+    .replace(/\*\*/g, '')
+    .trim();
 }
 
 async function fetchImageAsBase64(url: string): Promise<string> {
