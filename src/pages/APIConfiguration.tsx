@@ -170,6 +170,8 @@ export default function APIConfiguration() {
   const mpwaWebhookUrl = webhookToken 
     ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mpwa-webhook?token=${webhookToken}`
     : "Loading...";
+  const activeWebhookLabel = activeGateway === "mpwa" ? "MPWA Webhook" : "OneSender Webhook";
+  const activeWebhookUrl = activeGateway === "mpwa" ? mpwaWebhookUrl : webhookUrl;
   
   const mayarWebhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mayar-webhook`;
 
@@ -217,24 +219,12 @@ export default function APIConfiguration() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label className="text-sm font-semibold mb-2 block">OneSender Webhook</Label>
+              <Label className="text-sm font-semibold mb-2 block">{activeWebhookLabel}</Label>
               <div className="rounded-lg bg-muted p-4 flex items-center gap-2">
                 <code className="text-xs bg-background rounded px-3 py-2 flex-1 overflow-x-auto break-all">
-                  {webhookUrl}
+                  {activeWebhookUrl}
                 </code>
-                <Button variant="outline" size="icon" onClick={() => copyWebhook(webhookUrl, "OneSender Webhook")} disabled={!webhookToken}>
-                  {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                </Button>
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-sm font-semibold mb-2 block">MPWA Webhook</Label>
-              <div className="rounded-lg bg-muted p-4 flex items-center gap-2">
-                <code className="text-xs bg-background rounded px-3 py-2 flex-1 overflow-x-auto break-all">
-                  {mpwaWebhookUrl}
-                </code>
-                <Button variant="outline" size="icon" onClick={() => copyWebhook(mpwaWebhookUrl, "MPWA Webhook")} disabled={!webhookToken}>
+                <Button variant="outline" size="icon" onClick={() => copyWebhook(activeWebhookUrl, activeWebhookLabel)} disabled={!webhookToken}>
                   {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                 </Button>
               </div>
