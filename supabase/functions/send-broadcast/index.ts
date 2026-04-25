@@ -13,11 +13,31 @@ interface BroadcastRequest {
   category_id: string;
   media_type?: string;
   media_url?: string;
+  buttons?: Array<{ type: "reply" | "call" | "url" | "copy"; displayText: string; phoneNumber?: string; url?: string; copyText?: string }>;
   scheduled_at?: string;
   delay_min?: number;
   delay_max?: number;
   use_personalization?: boolean;
   template_id?: string;
+}
+
+function normalizeButtons(buttons: BroadcastRequest["buttons"] = []) {
+  return buttons
+    .slice(0, 5)
+    .map((button) => ({
+      type: button.type,
+      displayText: String(button.displayText || "").trim(),
+      phoneNumber: button.phoneNumber ? String(button.phoneNumber).replace(/\D/g, "") : undefined,
+      url: button.url ? String(button.url).trim() : undefined,
+      copyText: button.copyText ? String(button.copyText).trim() : undefined,
+    }))
+    .filter((button) => {
+      if (!button.displayText) return false;
+      if (button.type === "call") return !!button.phoneNumber;
+      if (button.type === "url") return !!button.url;
+      if (button.type === "copy") return !!button.copyText;
+      return button.type === "reply";
+    });
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -50,12 +70,15 @@ const handler = async (req: Request): Promise<Response> => {
       category_id,
       media_type = "text",
       media_url,
+      buttons = [],
       scheduled_at,
       delay_min = 1,
       delay_max = 3,
       use_personalization = false,
       template_id
     }: BroadcastRequest = await req.json();
+
+    const normalizedButtons = normalizeButtons(buttons);
 
     console.log("📢 Broadcast request:", {
       userId: user.id,
@@ -121,6 +144,7 @@ const handler = async (req: Request): Promise<Response> => {
         status: scheduled_at ? "scheduled" : "processing",
         media_type,
         media_url,
+        buttons: normalizedButtons as any,
         scheduled_at,
         delay_min,
         delay_max,
@@ -158,6 +182,7 @@ const handler = async (req: Request): Promise<Response> => {
         message: personalizedMessage,
         media_type,
         media_url,
+          buttons: normalizedButtons as any,
         status: scheduled_at ? "scheduled" : "pending",
         scheduled_at: scheduled_at || null,
       };
