@@ -202,9 +202,10 @@ async function generateAiReply(
       historyContext += '=== Akhir Riwayat ===\n\n';
     }
 
+    const linkFormatInstruction = '\n\nInstruksi format link: jika menyertakan URL, tulis URL asli secara polos tanpa markdown, tanpa **URL**, tanpa [URL](...), dan tanpa tanda ** agar link tetap aktif.';
     const userPrompt = context
-      ? `Gunakan knowledge base berikut untuk menjawab:\n\n${context}${historyContext}\nPertanyaan saat ini: ${question}`
-      : `${historyContext}Pertanyaan: ${question}`;
+      ? `Gunakan knowledge base berikut untuk menjawab:\n\n${context}${historyContext}\nPertanyaan saat ini: ${question}${linkFormatInstruction}`
+      : `${historyContext}Pertanyaan: ${question}${linkFormatInstruction}`;
 
     let apiUrl = '';
     let apiKey = '';
@@ -254,11 +255,23 @@ async function generateAiReply(
 
     const data = await response.json();
     if (aiVendor === 'gemini') {
-      return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+      return cleanAiReplyLinks(data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '');
     }
-    return data.choices?.[0]?.message?.content?.trim() || '';
+    return cleanAiReplyLinks(data.choices?.[0]?.message?.content?.trim() || '');
   } catch (error) {
     console.error('Error generating AI reply:', error);
     return '';
   }
+}
+
+function cleanAiReplyLinks(text: string): string {
+  return String(text || '')
+    .replace(/\[[^\]]*\]\(((?:https?:\/\/|www\.)[^\s)]+)\)/gi, '$1')
+    .replace(/\*\*\s*(URL|Link|Tautan)\s*\*\*\s*:?\s*/gi, '')
+    .replace(/__\s*(URL|Link|Tautan)\s*__\s*:?\s*/gi, '')
+    .replace(/\*\*((?:https?:\/\/|www\.)[^\s*]+)\*\*/gi, '$1')
+    .replace(/__((?:https?:\/\/|www\.)[^\s_]+)__/gi, '$1')
+    .replace(/`((?:https?:\/\/|www\.)[^`\s]+)`/gi, '$1')
+    .replace(/\*\*/g, '')
+    .trim();
 }
