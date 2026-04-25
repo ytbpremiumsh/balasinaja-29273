@@ -239,12 +239,12 @@ const handler = async (req: Request): Promise<Response> => {
         let requestHeaders: Record<string, string>;
 
         if (activeGateway === "mpwa") {
-          // MPWA: text only natively; for media, append URL inline to message
+          const hasButtons = Array.isArray((queueItem as any).buttons) && (queueItem as any).buttons.length > 0;
           let body = queueItem.message || "";
-          if (media_url && (media_type === "image" || media_type === "document" || media_type === "video")) {
+          if (!hasButtons && media_url && (media_type === "image" || media_type === "document" || media_type === "video")) {
             body = body ? `${body}\n${media_url}` : media_url;
           }
-          apiEndpoint = `${mpwaApiBase}/send-message`;
+          apiEndpoint = hasButtons ? `${mpwaApiBase}/send-button` : `${mpwaApiBase}/send-message`;
           requestHeaders = { "Content-Type": "application/json" };
           requestBody = {
             api_key: mpwaApiKey,
@@ -253,6 +253,10 @@ const handler = async (req: Request): Promise<Response> => {
             message: body,
             footer: mpwaFooter,
           };
+          if (hasButtons) {
+            requestBody.button = (queueItem as any).buttons;
+            requestBody.image = media_url || "https://placehold.co/1200x630/png?text=Broadcast";
+          }
         } else {
           // OneSender (existing logic)
           apiEndpoint = apiUrl;
