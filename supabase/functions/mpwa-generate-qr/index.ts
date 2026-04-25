@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -18,12 +17,21 @@ function normalizeQR(raw: any): string | null {
   return raw;
 }
 
-function isConnectedMsg(msg: any): boolean {
-  if (!msg) return false;
-  return String(msg).toLowerCase().includes('already connected');
+function isConnectedResponse(data: any, msg: any): boolean {
+  const status = String(data?.status || data?.data?.status || '').toLowerCase();
+  const message = String(msg || '').toLowerCase();
+  return (
+    status === 'connected' ||
+    status === 'authenticated' ||
+    status === 'ready' ||
+    message.includes('already connected') ||
+    message.includes('connected') ||
+    message.includes('authenticated') ||
+    message.includes('ready')
+  );
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -135,9 +143,11 @@ serve(async (req) => {
     }
 
     // Extract qrcode (docs: "qrcode" key with base64/data:image value)
-    const rawQr = mpwaData?.qrcode || mpwaData?.qr || mpwaData?.data?.qrcode || mpwaData?.data?.qr || null;
+    const rawQr = force
+      ? (mpwaData?.qrcode || mpwaData?.qr || mpwaData?.data?.qrcode || mpwaData?.data?.qr || null)
+      : null;
     const qrcode = normalizeQR(rawQr);
-    const connected = isConnectedMsg(message) || String(mpwaData?.status || '').toLowerCase() === 'connected';
+    const connected = isConnectedResponse(mpwaData, message);
 
     console.log('🎯 Result:', { hasQr: !!qrcode, connected, message });
 
