@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
     // Extract qrcode (docs: "qrcode" key with base64/data:image value)
     const rawQr = mpwaData?.qrcode || mpwaData?.qr || mpwaData?.data?.qrcode || mpwaData?.data?.qr || null;
     const qrcode = normalizeQR(rawQr);
-    const connected = isConnectedMsg(message) || String(mpwaData?.status || '').toLowerCase() === 'connected';
+    const connected = isConnectedResponse(mpwaData, message);
 
     console.log('🎯 Result:', { hasQr: !!qrcode, connected, message });
 
