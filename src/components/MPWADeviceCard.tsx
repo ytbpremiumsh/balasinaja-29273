@@ -13,8 +13,8 @@ interface MPWADeviceCardProps {
   description?: string;
 }
 
-const QR_LIFETIME_SECONDS = 30; // auto-refresh QR every 30s
-const POLL_INTERVAL_MS = 4000; // check connection every 4s
+const QR_LIFETIME_SECONDS = 45; // auto-refresh QR after it has had enough time to be scanned
+const POLL_INTERVAL_MS = 10000; // check connection without constantly replacing the QR
 
 export const MPWADeviceCard = ({
   scope = "user",
@@ -181,8 +181,6 @@ export const MPWADeviceCard = ({
           title: "✅ Berhasil terhubung!",
           description: "Device WhatsApp Anda sudah aktif dan siap mengirim pesan.",
         });
-      } else if (!qrcodeRef.current && res.qrcode) {
-        setQrcode(res.qrcode);
       }
     }, POLL_INTERVAL_MS);
   };
