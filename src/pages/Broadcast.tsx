@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Send, Plus, Trash2, Edit, Users, Radio, Calendar, FileText, CheckCircle, XCircle, Clock, Download } from "lucide-react";
+import { Send, Plus, Trash2, Edit, Users, Radio, Calendar, FileText, CheckCircle, XCircle, Clock, Download, Link, Phone, Copy } from "lucide-react";
 import { TemplateLibrary } from "@/components/broadcast/TemplateLibrary";
 import { CSVUpload } from "@/components/broadcast/CSVUpload";
 import {
@@ -49,6 +49,14 @@ interface BroadcastStats {
   pending: number;
 }
 
+interface BroadcastButton {
+  type: "reply" | "call" | "url" | "copy";
+  displayText: string;
+  phoneNumber?: string;
+  url?: string;
+  copyText?: string;
+}
+
 export default function Broadcast() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -62,6 +70,7 @@ export default function Broadcast() {
   const [delayMin, setDelayMin] = useState(1);
   const [delayMax, setDelayMax] = useState(3);
   const [usePersonalization, setUsePersonalization] = useState(false);
+  const [buttons, setButtons] = useState<BroadcastButton[]>([]);
   
   // Real-time stats
   const [currentBroadcastId, setCurrentBroadcastId] = useState<string | null>(null);
