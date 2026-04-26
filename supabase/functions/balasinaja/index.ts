@@ -28,12 +28,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Validate token and get user_id
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('user_id, webhook_token')
-      .eq('webhook_token', token)
-      .single();
+    // Validate token and get user_id without exposing stored webhook secrets
+    const { data: tokenRows, error: profileError } = await supabase
+      .rpc('validate_webhook_token', { _token: token });
+    const profile = tokenRows?.[0] || null;
 
     if (profileError || !profile) {
       console.error('❌ Invalid webhook token:', profileError?.message);

@@ -56,21 +56,24 @@ serve(async (req) => {
       });
     }
 
-    // Validate token and get user
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('user_id, name, plan, status, expire_at')
-      .eq('webhook_token', token)
-      .single();
+    // Validate token without exposing stored webhook secrets
+    const { data: tokenRows, error: profileError } = await supabase
+      .rpc('validate_webhook_token', { _token: token });
+    const tokenProfile = tokenRows?.[0] || null;
 
-    if (profileError || !profile) {
+    if (profileError || !tokenProfile) {
       return new Response(JSON.stringify({ error: 'Invalid token' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const userId = profile.user_id;
-    const isPremium = profile.plan && profile.plan !== 'trial' && profile.status !== 'expired';
+    const userId = tokenProfile.user_id;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('name, plan, status, expire_at')
+      .eq('user_id', userId)
+      .single();
+    const isPremium = profile?.plan && profile.plan !== 'trial' && profile.status !== 'expired';
 
     // GET CHAT HISTORY
     if (action === 'history') {

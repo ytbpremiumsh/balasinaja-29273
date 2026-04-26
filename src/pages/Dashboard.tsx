@@ -45,14 +45,10 @@ export default function Dashboard() {
 
   const loadWebhookToken = async (userId: string) => {
     try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("webhook_token")
-        .eq("user_id", userId)
-        .single();
+      const { data: token } = await (supabase as any).rpc("get_my_webhook_token");
       
-      if (profile?.webhook_token) {
-        setWebhookToken(profile.webhook_token);
+      if (token) {
+        setWebhookToken(token);
       }
     } catch (error) {
       console.error("Error loading webhook token:", error);
