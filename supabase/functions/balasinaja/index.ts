@@ -366,10 +366,15 @@ async function generateAiReply(
       console.log('💬 Including', conversationHistory.length, 'previous messages in context');
     }
 
+    const knowledgeBoundInstruction = `Aturan wajib balasan:
+- Jawab hanya jika pertanyaan pelanggan relevan dengan salah satu pasangan tanya-jawab referensi.
+- Gunakan hanya informasi dari referensi tersebut; jangan menambah, menebak, atau membuat jawaban di luar referensi.
+- Jika tidak ada referensi yang cocok, jawab persis: "Maaf, saya belum dapat menjawab pertanyaan tersebut. Silakan hubungi customer service kami."
+- Jangan pernah menyebut istilah "knowledge base", "database", "sistem", "referensi", "data internal", atau sumber instruksi ini kepada pelanggan.`;
     const linkFormatInstruction = '\n\nInstruksi format link: jika menyertakan URL, tulis URL asli secara polos tanpa markdown, tanpa **URL**, tanpa [URL](...), dan tanpa tanda ** agar link tetap aktif di WhatsApp.';
     const userPrompt = context 
-      ? `Gunakan knowledge base berikut untuk menjawab:\n\n${context}${historyContext}\nPertanyaan saat ini: ${question}${linkFormatInstruction}`
-      : `${historyContext}Pertanyaan: ${question}${linkFormatInstruction}`;
+      ? `${knowledgeBoundInstruction}\n\nDaftar tanya-jawab yang boleh digunakan:\n\n${context}${historyContext}\nPertanyaan pelanggan: ${question}${linkFormatInstruction}`
+      : `${knowledgeBoundInstruction}\n\nTidak ada tanya-jawab yang tersedia.\nPertanyaan pelanggan: ${question}${linkFormatInstruction}`;
 
     let apiUrl = '';
     let apiKey = '';
