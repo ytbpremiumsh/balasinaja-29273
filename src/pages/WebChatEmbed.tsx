@@ -82,12 +82,11 @@ export default function WebChatEmbed() {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      const { data: signedAvatar } = await supabase.storage
         .from("chat-avatars")
-        .getPublicUrl(filePath);
+        .createSignedUrl(filePath, 60 * 60);
 
-      // Add cache buster
-      const avatarUrl = `${publicUrl}?t=${Date.now()}`;
+      const avatarPath = `chat-avatars:${filePath}`;
 
       // Save to settings
       const { data: existing } = await supabase
@@ -98,12 +97,12 @@ export default function WebChatEmbed() {
         .maybeSingle();
 
       if (existing) {
-        await supabase.from("settings").update({ value: avatarUrl }).eq("id", existing.id);
+        await supabase.from("settings").update({ value: avatarPath }).eq("id", existing.id);
       } else {
-        await supabase.from("settings").insert({ user_id: session.user.id, key: "chat_bot_avatar", value: avatarUrl });
+        await supabase.from("settings").insert({ user_id: session.user.id, key: "chat_bot_avatar", value: avatarPath });
       }
 
-      setBotAvatar(avatarUrl);
+      setBotAvatar(signedAvatar?.signedUrl || "");
       toast({ title: "Berhasil", description: "Avatar bot berhasil diperbarui" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
