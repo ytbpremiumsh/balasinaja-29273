@@ -154,21 +154,32 @@ export default function WebChat() {
 
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop();
-      const filePath = `visitors/${sessionId}/${Date.now()}.${ext}`;
-      
-      const res = await fetch(`${SUPABASE_URL}/storage/v1/object/web-chat-attachments/${filePath}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: file,
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
 
-      if (!res.ok) throw new Error('Upload failed');
+      const data = await callApi({
+        action: 'upload_attachment',
+        session_id: sessionId,
+        visitor_name: visitorInfo.name,
+        visitor_phone: visitorInfo.phone,
+        file_name: file.name,
+        file_type: file.type,
+        file_base64: fileBase64,
+      });
 
-      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/web-chat-attachments/${filePath}`;
-      await sendMessage(publicUrl, 'image');
+      if (data.error) throw new Error(data.error);
+
+      setMessages((prev) => [...prev, {
+        id: `img-${Date.now()}`,
+        sender: 'visitor',
+        message: data.url,
+        message_type: 'image',
+        created_at: new Date().toISOString(),
+      }]);
     } catch (err) {
       console.error('Upload error:', err);
     } finally {
