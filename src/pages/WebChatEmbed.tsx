@@ -45,15 +45,16 @@ export default function WebChatEmbed() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const [profileRes, avatarRes, widgetTextRes, widgetEnabledRes] = await Promise.all([
-        supabase.from("profiles").select("webhook_token, plan").eq("user_id", session.user.id).single(),
+      const [profileRes, tokenRes, avatarRes, widgetTextRes, widgetEnabledRes] = await Promise.all([
+        supabase.from("profiles").select("plan").eq("user_id", session.user.id).single(),
+        (supabase as any).rpc("get_my_webhook_token"),
         supabase.from("settings").select("value").eq("user_id", session.user.id).eq("key", "chat_bot_avatar").maybeSingle(),
         supabase.from("settings").select("value").eq("user_id", session.user.id).eq("key", "chat_widget_text").maybeSingle(),
         supabase.from("settings").select("value").eq("user_id", session.user.id).eq("key", "chat_widget_text_enabled").maybeSingle(),
       ]);
 
+      if (tokenRes.data) setWebhookToken(tokenRes.data || "");
       if (profileRes.data) {
-        setWebhookToken(profileRes.data.webhook_token || "");
         setUserPlan(profileRes.data.plan || "trial");
       }
       if (avatarRes.data) setBotAvatar(await resolveAvatarUrl(avatarRes.data.value || ""));

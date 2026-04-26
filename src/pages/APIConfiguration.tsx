@@ -88,14 +88,10 @@ export default function APIConfiguration() {
       // Load webhook token from profiles
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("webhook_token")
-          .eq("user_id", session.user.id)
-          .single();
+        const { data: token } = await (supabase as any).rpc("get_my_webhook_token");
         
-        if (profile?.webhook_token) {
-          setWebhookToken(profile.webhook_token);
+        if (token) {
+          setWebhookToken(token);
         }
       }
     } catch (err) {
