@@ -916,6 +916,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      validate_dashboard_embed_token: {
+        Args: { _token: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "user" | "support"
