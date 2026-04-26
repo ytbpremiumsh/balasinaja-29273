@@ -266,8 +266,28 @@ export default function WebChatDashboard({ embedUserId, embedToken, isEmbedded }
       const userId = await getUserId();
       if (!userId) throw new Error("Not authenticated");
 
+      const sessionId = getLatestSessionId() || crypto.randomUUID();
+
+      if (embedToken) {
+        const fileBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ''));
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const upload = await callProxy('upload_attachment', {
+          sessionId,
+          visitorPhone: selectedPhone,
+          fileName: file.name,
+          fileType: file.type,
+          fileBase64,
+        });
+        await sendReply(upload.storedMessage, 'image');
+        return;
+      }
+
       const ext = file.name.split('.').pop();
-      const filePath = `${userId}/${Date.now()}.${ext}`;
+      const filePath = `${userId}/admin/${Date.now()}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from('web-chat-attachments')
@@ -275,11 +295,7 @@ export default function WebChatDashboard({ embedUserId, embedToken, isEmbedded }
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('web-chat-attachments')
-        .getPublicUrl(filePath);
-
-      await sendReply(publicUrl, 'image');
+      await sendReply(`web-chat-attachments:${filePath}`, 'image');
     } catch (err: any) {
       toast.error("Gagal upload gambar: " + err.message);
     } finally {
