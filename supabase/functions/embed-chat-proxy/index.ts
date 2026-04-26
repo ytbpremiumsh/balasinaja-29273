@@ -5,6 +5,24 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const ATTACHMENT_BUCKET = 'web-chat-attachments';
+const attachmentPrefix = `${ATTACHMENT_BUCKET}:`;
+
+async function signAttachmentUrl(supabase: any, value: string): Promise<string> {
+  if (!value?.startsWith(attachmentPrefix)) return value;
+  const path = value.slice(attachmentPrefix.length);
+  const { data } = await supabase.storage.from(ATTACHMENT_BUCKET).createSignedUrl(path, 60 * 60);
+  return data?.signedUrl || value;
+}
+
+async function signImageMessages(supabase: any, messages: any[]): Promise<any[]> {
+  return Promise.all((messages || []).map(async (msg) => (
+    msg.message_type === 'image'
+      ? { ...msg, message: await signAttachmentUrl(supabase, msg.message) }
+      : msg
+  )));
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -17,7 +35,7 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json();
-    const { embedToken, action, phone, message, messageType, sessionId, visitorPhone } = body;
+    const { embedToken, action, phone, message, messageType, sessionId, visitorPhone, fileName, fileType, fileBase64 } = body;
 
     if (!embedToken) {
       return new Response(JSON.stringify({ error: 'Token required' }), { status: 400, headers: corsHeaders });
@@ -50,7 +68,7 @@ Deno.serve(async (req) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return new Response(JSON.stringify({ data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ data: await signImageMessages(supabase, data || []) }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     if (action === 'fetch_messages') {
@@ -66,7 +84,25 @@ Deno.serve(async (req) => {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      return new Response(JSON.stringify({ data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ data: await signImageMessages(supabase, data || []) }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    if (action === 'upload_attachment') {
+      if (!sessionId || !visitorPhone || !fileBase64 || !fileType?.startsWith('image/')) {
+        return new Response(JSON.stringify({ error: 'Valid image, sessionId and visitorPhone required' }), { status: 400, headers: corsHeaders });
+      }
+      const ext = String(fileName || 'image.png').split('.').pop()?.replace(/[^a-z0-9]/gi, '').toLowerCase() || 'png';
+      const binary = Uint8Array.from(atob(String(fileBase64).split(',').pop() || ''), (c) => c.charCodeAt(0));
+      if (binary.byteLength > 3 * 1024 * 1024) {
+        return new Response(JSON.stringify({ error: 'Image too large' }), { status: 413, headers: corsHeaders });
+      }
+      const safeSession = String(sessionId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
+      const path = `${userId}/admin/${safeSession}/${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from(ATTACHMENT_BUCKET)
+        .upload(path, binary, { contentType: fileType, upsert: false });
+      if (uploadError) throw uploadError;
+      return new Response(JSON.stringify({ storedMessage: `${attachmentPrefix}${path}`, url: await signAttachmentUrl(supabase, `${attachmentPrefix}${path}`) }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     if (action === 'send_reply') {
