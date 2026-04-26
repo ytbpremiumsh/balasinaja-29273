@@ -38,10 +38,28 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .eq('role', 'admin')
       .maybeSingle();
-    if (!roles) {
+    const isAdmin = !!roles;
+    const requestBody = await req.json().catch(() => ({}));
+    const requestedLogId = typeof requestBody?.logId === 'string' ? requestBody.logId : null;
+
+    if (!isAdmin && !requestedLogId) {
       return new Response(JSON.stringify({ error: 'Forbidden - Admin only' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    if (!isAdmin && requestedLogId) {
+      const { data: ownedLog } = await supabaseAdmin
+        .from('broadcast_logs')
+        .select('id')
+        .eq('id', requestedLogId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (!ownedLog) {
+        return new Response(JSON.stringify({ error: 'Forbidden' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     const supabase = supabaseAdmin;
@@ -54,12 +72,18 @@ serve(async (req) => {
 
     // Get all broadcast queue items that need to be sent
     // This includes both scheduled items and pending items (from "Kirim Sekarang")
-    const { data: queueItems, error: queueError } = await supabase
+    let queueQuery = supabase
       .from('broadcast_queue')
       .select('*')
       .in('status', ['scheduled', 'pending'])
       .or(`scheduled_at.is.null,scheduled_at.lte.${now.toISOString()}`)
       .limit(100);
+
+    if (requestedLogId) {
+      queueQuery = queueQuery.eq('broadcast_log_id', requestedLogId);
+    }
+
+    const { data: queueItems, error: queueError } = await queueQuery;
 
     if (queueError) {
       console.error('❌ Error fetching queue:', queueError);
