@@ -62,12 +62,8 @@ export default function APIConfiguration() {
   }, []);
 
   const loadActiveGateway = async () => {
-    const { data } = await supabase
-      .from("wa_gateway_settings")
-      .select("active_gateway")
-      .limit(1)
-      .maybeSingle();
-    if (data?.active_gateway) setActiveGateway(data.active_gateway as "onesender" | "mpwa");
+    const { data } = await (supabase as any).rpc("get_active_gateway");
+    if (data) setActiveGateway(data as "onesender" | "mpwa");
   };
 
   const loadSettings = async () => {

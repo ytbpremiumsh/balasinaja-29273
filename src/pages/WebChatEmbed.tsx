@@ -33,6 +33,13 @@ export default function WebChatEmbed() {
     loadData();
   }, []);
 
+  const resolveAvatarUrl = async (value: string) => {
+    const prefix = "chat-avatars:";
+    if (!value?.startsWith(prefix)) return value || "";
+    const { data } = await supabase.storage.from("chat-avatars").createSignedUrl(value.slice(prefix.length), 60 * 60);
+    return data?.signedUrl || "";
+  };
+
   const loadData = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -49,7 +56,7 @@ export default function WebChatEmbed() {
         setWebhookToken(profileRes.data.webhook_token || "");
         setUserPlan(profileRes.data.plan || "trial");
       }
-      if (avatarRes.data) setBotAvatar(avatarRes.data.value || "");
+      if (avatarRes.data) setBotAvatar(await resolveAvatarUrl(avatarRes.data.value || ""));
       if (widgetTextRes.data) setWidgetText(widgetTextRes.data.value || "Hubungi Kami 💬");
       if (widgetEnabledRes.data) setWidgetTextEnabled(widgetEnabledRes.data.value === "true");
     } catch (error) {
@@ -82,12 +89,11 @@ export default function WebChatEmbed() {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      const { data: signedAvatar } = await supabase.storage
         .from("chat-avatars")
-        .getPublicUrl(filePath);
+        .createSignedUrl(filePath, 60 * 60);
 
-      // Add cache buster
-      const avatarUrl = `${publicUrl}?t=${Date.now()}`;
+      const avatarPath = `chat-avatars:${filePath}`;
 
       // Save to settings
       const { data: existing } = await supabase
@@ -98,12 +104,12 @@ export default function WebChatEmbed() {
         .maybeSingle();
 
       if (existing) {
-        await supabase.from("settings").update({ value: avatarUrl }).eq("id", existing.id);
+        await supabase.from("settings").update({ value: avatarPath }).eq("id", existing.id);
       } else {
-        await supabase.from("settings").insert({ user_id: session.user.id, key: "chat_bot_avatar", value: avatarUrl });
+        await supabase.from("settings").insert({ user_id: session.user.id, key: "chat_bot_avatar", value: avatarPath });
       }
 
-      setBotAvatar(avatarUrl);
+      setBotAvatar(signedAvatar?.signedUrl || "");
       toast({ title: "Berhasil", description: "Avatar bot berhasil diperbarui" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
