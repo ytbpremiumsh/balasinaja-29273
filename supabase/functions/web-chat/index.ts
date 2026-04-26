@@ -8,12 +8,25 @@ const corsHeaders = {
 
 const ATTACHMENT_BUCKET = 'web-chat-attachments';
 const attachmentPrefix = `${ATTACHMENT_BUCKET}:`;
+const AVATAR_BUCKET = 'chat-avatars';
+const avatarPrefix = `${AVATAR_BUCKET}:`;
 
 async function signAttachmentUrl(supabase: any, value: string): Promise<string> {
   if (!value?.startsWith(attachmentPrefix)) return value;
   const path = value.slice(attachmentPrefix.length);
   const { data } = await supabase.storage.from(ATTACHMENT_BUCKET).createSignedUrl(path, 60 * 60);
   return data?.signedUrl || value;
+}
+
+async function signAvatarUrl(supabase: any, value: string): Promise<string> {
+  if (!value) return '';
+  let path = value.startsWith(avatarPrefix) ? value.slice(avatarPrefix.length) : '';
+  if (!path && value.includes('/object/public/chat-avatars/')) {
+    path = decodeURIComponent(value.split('/object/public/chat-avatars/')[1]?.split('?')[0] || '');
+  }
+  if (!path) return value;
+  const { data } = await supabase.storage.from(AVATAR_BUCKET).createSignedUrl(path, 60 * 60);
+  return data?.signedUrl || '';
 }
 
 async function signImageMessages(supabase: any, messages: any[]): Promise<any[]> {
@@ -199,7 +212,7 @@ serve(async (req) => {
 
       return new Response(JSON.stringify({ 
         business_name: profile.name || 'Business',
-        bot_avatar: avatarSetting?.value || '',
+        bot_avatar: await signAvatarUrl(supabase, avatarSetting?.value || ''),
         is_premium: isPremium,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
