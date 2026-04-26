@@ -626,6 +626,27 @@ export type Database = {
         }
         Relationships: []
       }
+      profile_secrets: {
+        Row: {
+          created_at: string
+          updated_at: string
+          user_id: string
+          webhook_token: string
+        }
+        Insert: {
+          created_at?: string
+          updated_at?: string
+          user_id: string
+          webhook_token?: string
+        }
+        Update: {
+          created_at?: string
+          updated_at?: string
+          user_id?: string
+          webhook_token?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -639,7 +660,6 @@ export type Database = {
           plan: string | null
           status: string | null
           user_id: string
-          webhook_token: string
           whatsapp_number: string | null
         }
         Insert: {
@@ -654,7 +674,6 @@ export type Database = {
           plan?: string | null
           status?: string | null
           user_id: string
-          webhook_token?: string
           whatsapp_number?: string | null
         }
         Update: {
@@ -669,7 +688,6 @@ export type Database = {
           plan?: string | null
           status?: string | null
           user_id?: string
-          webhook_token?: string
           whatsapp_number?: string | null
         }
         Relationships: []
@@ -910,6 +928,7 @@ export type Database = {
     }
     Functions: {
       get_active_gateway: { Args: never; Returns: string }
+      get_my_webhook_token: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -918,6 +937,12 @@ export type Database = {
         Returns: boolean
       }
       validate_dashboard_embed_token: {
+        Args: { _token: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
+      validate_webhook_token: {
         Args: { _token: string }
         Returns: {
           user_id: string
