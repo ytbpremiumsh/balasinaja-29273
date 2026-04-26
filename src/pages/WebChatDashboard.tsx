@@ -110,6 +110,16 @@ export default function WebChatDashboard({ embedUserId, embedToken, isEmbedded }
     return session?.user?.id || null;
   };
 
+  const signAttachmentMessages = async (rows: ChatMessage[]) => {
+    return Promise.all(rows.map(async (msg) => {
+      const prefix = 'web-chat-attachments:';
+      if (msg.message_type !== 'image' || !msg.message?.startsWith(prefix)) return msg;
+      const path = msg.message.slice(prefix.length);
+      const { data } = await supabase.storage.from('web-chat-attachments').createSignedUrl(path, 60 * 60);
+      return { ...msg, message: data?.signedUrl || msg.message };
+    }));
+  };
+
   const fetchContacts = async () => {
     try {
       let data: any[] | null = null;
@@ -187,7 +197,7 @@ export default function WebChatDashboard({ embedUserId, embedToken, isEmbedded }
       .eq('visitor_phone', phone)
       .order('created_at', { ascending: true });
 
-    setMessages(data || []);
+    setMessages(await signAttachmentMessages((data || []) as ChatMessage[]));
   };
 
   const openContact = (phone: string) => {
