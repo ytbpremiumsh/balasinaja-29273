@@ -20,22 +20,12 @@ export default function EmbedDashboard() {
     }
 
     try {
-      const { data, error } = await supabase
-        .from("dashboard_embed_tokens" as any)
-        .select("user_id, is_active, expires_at")
-        .eq("token", embedToken)
-        .eq("is_active", true)
-        .maybeSingle();
+      const { data, error } = await (supabase as any)
+        .rpc("validate_dashboard_embed_token", { _token: embedToken });
 
-      if (error || !data) {
-        setStatus("invalid");
-        return;
-      }
+      const tokenData = Array.isArray(data) ? data[0] : null;
 
-      const tokenData = data as any;
-
-      // Check expiration
-      if (tokenData.expires_at && new Date(tokenData.expires_at) < new Date()) {
+      if (error || !tokenData?.user_id) {
         setStatus("invalid");
         return;
       }
