@@ -33,6 +33,13 @@ export default function WebChatEmbed() {
     loadData();
   }, []);
 
+  const resolveAvatarUrl = async (value: string) => {
+    const prefix = "chat-avatars:";
+    if (!value?.startsWith(prefix)) return value || "";
+    const { data } = await supabase.storage.from("chat-avatars").createSignedUrl(value.slice(prefix.length), 60 * 60);
+    return data?.signedUrl || "";
+  };
+
   const loadData = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -49,7 +56,7 @@ export default function WebChatEmbed() {
         setWebhookToken(profileRes.data.webhook_token || "");
         setUserPlan(profileRes.data.plan || "trial");
       }
-      if (avatarRes.data) setBotAvatar(avatarRes.data.value || "");
+      if (avatarRes.data) setBotAvatar(await resolveAvatarUrl(avatarRes.data.value || ""));
       if (widgetTextRes.data) setWidgetText(widgetTextRes.data.value || "Hubungi Kami 💬");
       if (widgetEnabledRes.data) setWidgetTextEnabled(widgetEnabledRes.data.value === "true");
     } catch (error) {
